@@ -15,21 +15,29 @@ from __future__ import annotations
 from typing import Any
 
 
-def _load_fastmcp():
+def _load_server_class():
+    # Support MCP Python SDK v2 (MCPServer) and v1 (FastMCP).
+    try:
+        from mcp.server.mcpserver import MCPServer  # type: ignore
+
+        return MCPServer
+    except Exception:
+        pass
     try:
         from mcp.server.fastmcp import FastMCP  # type: ignore
+
+        return FastMCP
     except Exception as e:  # pragma: no cover
         raise RuntimeError(
-            "The MCP SDK is required for the Alvex MCP server. Install with: pip install 'alvex-editor[agent]'"
+            "The MCP SDK is required for the Alvex MCP server. Install with: pip install 'alvex-editor[agent]' (mcp>=1.0)"
         ) from e
-    return FastMCP
 
 
 def build_server():
     from . import api
 
-    FastMCP = _load_fastmcp()
-    mcp = FastMCP("alvex-editor")
+    Server = _load_server_class()
+    mcp = Server("alvex-editor")
 
     @mcp.tool()
     def project_status(project: str) -> dict[str, Any]:
