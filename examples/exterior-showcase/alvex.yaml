@@ -1,0 +1,17 @@
+# Example Alvex project for templates/exterior-showcase.md
+name: exterior-showcase-example
+template: ../../templates/exterior-showcase.md
+soundtrack: media/soundtrack.mp3   # placeholder path
+clips_dir: media/clips             # placeholder; use --map-clips when files exist
+output_dir: output
+timeline_path: output/timeline.json
+analysis_path: output/analysis.json
+
+# Phase 2: provide pacing (used when no auto-detection backend is available).
+# analysis:
+#   bpm: 120
+#   offset: 0.0
+#   # cut_points: [9.0, 18.0, ...]
+
+variables:
+  address: "123 Main St, Anytown, USA"

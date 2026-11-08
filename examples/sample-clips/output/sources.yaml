@@ -1,0 +1,416 @@
+sources:
+  high-approach-front:
+    path: /home/lappy/Videos/sample-clips/high-approach-front.mp4
+    in_point: 0.0
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 22.533334
+        resolved_duration: 8.7273
+        candidates:
+        - in_point: 0.0
+          out_point: 8.7273
+          reason: intro/start
+          score: null
+          rationale: null
+        - in_point: 3.4515
+          out_point: 12.1788
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 6.903
+          out_point: 15.6303
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 10.3545
+          out_point: 19.0818
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 13.806
+          out_point: 22.5333
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 8.7273
+          reason: intro/start
+          score: null
+          rationale: null
+  mid-orbit-front:
+    path: /home/lappy/Videos/sample-clips/mid-orbit-front.mp4
+    in_point: 2.8136
+    _suggestion:
+      in_point: 2.8136
+      selection:
+        method: heuristic
+        source_duration: 14.9
+        resolved_duration: 9.2727
+        candidates:
+        - in_point: 0.0
+          out_point: 9.2727
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 1.4068
+          out_point: 10.6795
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 2.8136
+          out_point: 12.0863
+          reason: window centered on source midpoint
+          score: null
+          rationale: null
+        - in_point: 4.2205
+          out_point: 13.4932
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 5.6273
+          out_point: 14.9
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 2.8136
+          out_point: 12.0863
+          reason: window centered on source midpoint
+          score: null
+          rationale: null
+  pan-front:
+    path: /home/lappy/Videos/sample-clips/pan-front.mp4
+    in_point: 0.0
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 21.8
+        resolved_duration: 8.7273
+        candidates:
+        - in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 3.2682
+          out_point: 11.9955
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 6.5364
+          out_point: 15.2637
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 9.8045
+          out_point: 18.5318
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 13.0727
+          out_point: 21.8
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+  approach-door:
+    path: /home/lappy/Videos/sample-clips/approach-front-door.mp4
+    in_point: 12.5
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 24.2
+        resolved_duration: 9.2727
+        candidates:
+        - in_point: 0.0
+          out_point: 9.2727
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 3.7318
+          out_point: 13.0045
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 7.4636
+          out_point: 16.7363
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 11.1955
+          out_point: 20.4682
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 14.9273
+          out_point: 24.2
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 9.2727
+          reason: sample start
+          score: null
+          rationale: null
+      manual_note: adjusted in_point to end closer to front door (feedback); tune
+        as needed
+  rise-up:
+    path: /home/lappy/Videos/sample-clips/rise-up.mp4
+    in_point: 0.0
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 14.3
+        resolved_duration: 8.7273
+        candidates:
+        - in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 1.3932
+          out_point: 10.1205
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 2.7864
+          out_point: 11.5137
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 4.1795
+          out_point: 12.9068
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 5.5727
+          out_point: 14.3
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+  high-orbit-front:
+    path: /home/lappy/Videos/sample-clips/high-orbit-front.mp4
+    in_point: 14.0636
+    _suggestion:
+      in_point: 14.0636
+      selection:
+        method: heuristic
+        source_duration: 37.4
+        resolved_duration: 9.2727
+        candidates:
+        - in_point: 0.0
+          out_point: 9.2727
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 7.0318
+          out_point: 16.3045
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 14.0636
+          out_point: 23.3363
+          reason: window centered on source midpoint
+          score: null
+          rationale: null
+        - in_point: 21.0955
+          out_point: 30.3682
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 28.1273
+          out_point: 37.4
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 14.0636
+          out_point: 23.3363
+          reason: window centered on source midpoint
+          score: null
+          rationale: null
+  high-orbit-back:
+    path: /home/lappy/Videos/sample-clips/high-orbit-back.mp4
+    in_point: 0.0
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 28.666667
+        resolved_duration: 8.7273
+        candidates:
+        - in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 4.9848
+          out_point: 13.7121
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 9.9697
+          out_point: 18.697
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 14.9545
+          out_point: 23.6818
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 19.9394
+          out_point: 28.6667
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+  mid-orbit-back:
+    path: /home/lappy/Videos/sample-clips/mid-orbit-back.mp4
+    in_point: 0.0
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 17.0
+        resolved_duration: 9.2727
+        candidates:
+        - in_point: 0.0
+          out_point: 9.2727
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 1.9318
+          out_point: 11.2045
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 3.8636
+          out_point: 13.1363
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 5.7955
+          out_point: 15.0682
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 7.7273
+          out_point: 17.0
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 9.2727
+          reason: sample start
+          score: null
+          rationale: null
+  pan-back:
+    path: /home/lappy/Videos/sample-clips/pan-back.mp4
+    in_point: 0.0
+    _suggestion:
+      in_point: 0.0
+      selection:
+        method: heuristic
+        source_duration: 20.9
+        resolved_duration: 8.7273
+        candidates:
+        - in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 3.0432
+          out_point: 11.7705
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 6.0863
+          out_point: 14.8136
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 9.1295
+          out_point: 17.8568
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 12.1727
+          out_point: 20.9
+          reason: sample end
+          score: null
+          rationale: null
+        selected:
+          in_point: 0.0
+          out_point: 8.7273
+          reason: sample start
+          score: null
+          rationale: null
+  departure:
+    path: /home/lappy/Videos/sample-clips/departure.mp4
+    in_point: 9.3
+    _suggestion:
+      in_point: 9.606
+      selection:
+        method: heuristic
+        source_duration: 24.333334
+        resolved_duration: 14.7273
+        candidates:
+        - in_point: 0.0
+          out_point: 14.7273
+          reason: sample start
+          score: null
+          rationale: null
+        - in_point: 2.4015
+          out_point: 17.1288
+          reason: sample 25%
+          score: null
+          rationale: null
+        - in_point: 4.803
+          out_point: 19.5303
+          reason: sample 50%
+          score: null
+          rationale: null
+        - in_point: 7.2045
+          out_point: 21.9318
+          reason: sample 75%
+          score: null
+          rationale: null
+        - in_point: 9.606
+          out_point: 24.3333
+          reason: outro/end
+          score: null
+          rationale: null
+        selected:
+          in_point: 9.606
+          out_point: 24.3333
+          reason: outro/end
+          score: null
+          rationale: null
+      manual_note: tuned in_point to fit 15s resolved duration without clamping
+project: sample-clips-exterior
+template: /home/lappy/Development/alvex-editor/templates/exterior-showcase.md

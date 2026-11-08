@@ -1,0 +1,23 @@
+{
+  "source": "/home/lappy/Videos/sample-clips/bensound-acousticbreeze.mp3",
+  "bpm": null,
+  "offset": 0.0,
+  "duration": null,
+  "beat_times": [],
+  "cut_points": [
+    10.82,
+    19.3,
+    28.82,
+    38.31,
+    47.83,
+    57.31,
+    66.85,
+    76.32,
+    85.84,
+    100.68
+  ],
+  "method": "config.cut_points",
+  "notes": [
+    "10 explicit cut points"
+  ]
+}

@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Alvex runtime artifacts (regenerable)
+**/output/*.mp4
+**/output/*.mov
+**/output/_*.mp4
+**/output/preview.mp4
+**/output/final.mp4
+/tmp/
+/home/lappy/.cache/
+
+# Local test renders / large media (do not publish)
+output-test-*/
+simple_test.mp4
+*.mp4
+!examples/**/*.keep
+
+# Local/sample caches (optional to commit timelines/manifests)
+# examples/*/output/analysis.json

@@ -1,0 +1,85 @@
+"""MCP server exposing Alvex Editor as tools for AI agents.
+
+Run (after installing the optional extra): `alvex-editor-mcp`
+Or: `python -m alvex_editor.mcp_server`
+
+Install: `pip install "alvex-editor[agent]"`
+
+Tools wrap `alvex_editor.api` and preserve human-confirmation gates:
+- suggest_* tools write suggested manifests and set requires_confirmation; pass apply=True only with explicit user confirmation.
+- render_video defaults to dry_run/preview-friendly use; only execute a real render when explicitly requested.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+def _load_fastmcp():
+    try:
+        from mcp.server.fastmcp import FastMCP  # type: ignore
+    except Exception as e:  # pragma: no cover
+        raise RuntimeError(
+            "The MCP SDK is required for the Alvex MCP server. Install with: pip install 'alvex-editor[agent]'"
+        ) from e
+    return FastMCP
+
+
+def build_server():
+    from . import api
+
+    FastMCP = _load_fastmcp()
+    mcp = FastMCP("alvex-editor")
+
+    @mcp.tool()
+    def project_status(project: str) -> dict[str, Any]:
+        """Inspect an Alvex project: config, template/soundtrack/clips presence, timeline/analysis cache, and ffmpeg/ffprobe/ollama availability."""
+        return api.project_status(project=project)
+
+    @mcp.tool()
+    def template_info(project: str) -> dict[str, Any]:
+        """Parse and return a project's template (slots, order, constraints)."""
+        return api.template_info(project=project)
+
+    @mcp.tool()
+    def analyze_soundtrack(project: str, backend: str = "auto", refresh: bool = False, output: str | None = None) -> dict[str, Any]:
+        """Analyze a project's soundtrack into a beat/cut-point grid. backend: auto|onsets|librosa|library. Uses/rebuilds the song cut-point library (hash-cached) unless refresh. Explicit config cut_points/bpm/beat_times may take precedence per config rules."""
+        return api.analyze(project=project, backend=backend, refresh=refresh, output=output, write_cache=True)
+
+    @mcp.tool()
+    def plan_timeline(project: str, map_clips: bool = False, run_analyze: bool = True, output: str | None = None) -> dict[str, Any]:
+        """Build/resolve timeline.json from the template (+ optional analysis and filename-based clip mapping)."""
+        return api.plan(project=project, output=output, map_clips=map_clips, run_analyze=run_analyze)
+
+    @mcp.tool()
+    def suggest_clip_mapping(project: str, clips: str | None = None, timeline: str | None = None, vision: bool = False, host: str | None = None, model: str | None = None, vision_model: str | None = None, output: str | None = None, manifest: str | None = None, apply: bool = False) -> dict[str, Any]:
+        """Suggest clip-to-slot mappings (Ollama). Writes a suggested manifest for review. IMPORTANT: requires_confirmation unless apply=True; set apply=True ONLY with explicit user confirmation."""
+        return api.suggest_mapping(project=project, timeline=timeline, clips=clips, host=host, model=model, vision_model=vision_model, vision=vision, output=output, manifest=manifest, apply=apply)
+
+    @mcp.tool()
+    def suggest_inpoints(project: str, timeline: str | None = None, manifest: str | None = None, vision: bool = False, candidates: int = 5, slots: list[str] | None = None, host: str | None = None, model: str | None = None, vision_model: str | None = None, output: str | None = None, apply: bool = False) -> dict[str, Any]:
+        """Suggest in-points (segment selection) for mapped clips. Writes a suggested manifest for review. IMPORTANT: requires_confirmation unless apply=True; set apply=True ONLY with explicit user confirmation."""
+        return api.suggest_inpoints(project=project, timeline=timeline, manifest=manifest, host=host, model=model, vision_model=vision_model, vision=vision, candidates=candidates, slots=slots, output=output, apply=apply)
+
+    @mcp.tool()
+    def apply_manifest(project: str | None = None, suggested: str = "", target: str | None = None) -> dict[str, Any]:
+        """Apply a reviewed suggested manifest to a target manifest. Explicit confirmation action (call only after the user has reviewed/approved the suggestion)."""
+        if not suggested:
+            return {"ok": False, "command": "apply_manifest", "error": "suggested manifest path is required"}
+        return api.apply_manifest_file(project=project, suggested=suggested, target=target)
+
+    @mcp.tool()
+    def render_video(project: str | None = None, timeline: str | None = None, manifest: str | None = None, output: str | None = None, soundtrack: str | None = None, preview: bool = True, dry_run: bool = False, print_filter: bool = False, allow_unmapped: bool = False, no_plan: bool = False, no_probe: bool = False, strict_duration: bool = False) -> dict[str, Any]:
+        """Render a resolved timeline with FFmpeg. Defaults to preview=True. Use dry_run=True to inspect the command/filter without executing. Set preview=False and dry_run=False only for an intentional final render."""
+        return api.render(project=project, timeline=timeline, manifest=manifest, output=output, soundtrack=soundtrack, preview=preview, dry_run=dry_run, print_filter=print_filter, allow_unmapped=allow_unmapped, no_plan=no_plan, no_probe=no_probe, strict_duration=strict_duration)
+
+    return mcp
+
+
+def main() -> None:
+    mcp = build_server()
+    mcp.run()
+
+
+if __name__ == "__main__":
+    main()

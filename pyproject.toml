@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alvex-editor"
+version = "0.1.0"
+description = "Alvex Editor - template-driven video editing and production"
+readme = "instructions.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+agent = [
+  "mcp>=1.0.0",
+]
+analysis = [
+  "numpy>=1.24",
+]
+
+[project.scripts]
+alvex-editor = "alvex_editor.cli:main"
+alvex = "alvex_editor.cli:main"
+alvex-editor-mcp = "alvex_editor.mcp_server:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"

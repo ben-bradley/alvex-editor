@@ -1,0 +1,306 @@
+{
+  "version": 1,
+  "project": "sample-clips-exterior",
+  "template": "/home/lappy/Development/alvex-editor/templates/exterior-showcase.md",
+  "soundtrack": "/home/lappy/Videos/sample-clips/bensound-acousticbreeze.mp3",
+  "created_at": "2026-11-08T00:03:29.271276+00:00",
+  "variables": {
+    "address": "123 Main St\nLittle Rock, Arkansas"
+  },
+  "analysis": {
+    "source": "/home/lappy/Videos/sample-clips/bensound-acousticbreeze.mp3",
+    "bpm": null,
+    "offset": 0.0,
+    "duration": null,
+    "beat_times": [],
+    "cut_points": [
+      10.82,
+      19.3,
+      28.82,
+      38.31,
+      47.83,
+      57.31,
+      66.85,
+      76.32,
+      85.84,
+      100.68
+    ],
+    "method": "config.cut_points",
+    "notes": [
+      "10 explicit cut points"
+    ]
+  },
+  "segments": [
+    {
+      "slot_id": "high-approach-front",
+      "name": "High Approach Front",
+      "description": "This is the intro clip. It should be about 10-14 seconds long to allow time for the fade in and title. It includes a 5 second fade in and includes a title that is the address of the home. The title is visible after the first second of the fade in and is visible for 5 seconds. The music also fades in for 5 seconds.",
+      "optional": false,
+      "target_duration": 12.0,
+      "min_duration": 10.0,
+      "max_duration": 14.0,
+      "resolved_duration": 10.82,
+      "timeline_in": 0.0,
+      "timeline_out": 10.82,
+      "source": {
+        "hint": "High Approach Front",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "overlays": [
+        {
+          "type": "title",
+          "text": "${address}",
+          "start": 1.0,
+          "end": 6.0
+        }
+      ],
+      "video_effects": [
+        {
+          "type": "fade_in",
+          "duration": 5.0
+        }
+      ],
+      "audio": {
+        "fade_in": 5.0
+      },
+      "notes": [
+        "video fade-in 5.0s",
+        "music fade-in 5.0s",
+        "title ${address} 1s-6s",
+        "resolved from cut point @ 10.82s"
+      ]
+    },
+    {
+      "slot_id": "mid-orbit-front",
+      "name": "Mid Orbit Front",
+      "description": "This clip is taken from the **Mid Orbit** recording. It should be about 8-10 seconds and the front of the house should be centered in the frame at the midpoint of the clip (e.g.: the house is centered at 4 seconds for an 8 second clip).",
+      "optional": false,
+      "target_duration": 9.0,
+      "min_duration": 8.0,
+      "max_duration": 10.0,
+      "resolved_duration": 8.48,
+      "timeline_in": 10.82,
+      "timeline_out": 19.3,
+      "source": {
+        "hint": "Mid Orbit",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 19.3s"
+      ]
+    },
+    {
+      "slot_id": "pan-front",
+      "name": "Pan Front",
+      "description": "This gives a closer view of the front of the house.",
+      "optional": false,
+      "resolved_duration": 9.52,
+      "timeline_in": 19.3,
+      "timeline_out": 28.82,
+      "source": {
+        "hint": "Pan Front",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 28.82s"
+      ]
+    },
+    {
+      "slot_id": "approach-door",
+      "name": "Approach Door",
+      "description": "This gives the viewer a sense of what it's like to walk up to the front door.",
+      "optional": false,
+      "resolved_duration": 9.49,
+      "timeline_in": 28.82,
+      "timeline_out": 38.31,
+      "source": {
+        "hint": "Approach Door",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 38.31s"
+      ]
+    },
+    {
+      "slot_id": "rise-up",
+      "name": "Rise Up",
+      "description": "This gives a top-down look at the house and property.",
+      "optional": false,
+      "resolved_duration": 9.52,
+      "timeline_in": 38.31,
+      "timeline_out": 47.83,
+      "source": {
+        "hint": "Rise Up",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 47.83s"
+      ]
+    },
+    {
+      "slot_id": "high-orbit-front",
+      "name": "High Orbit Front",
+      "description": "This clip is taken from the **High Orbit** recording. The front of the house should be centered at the midpoint of the clip.",
+      "optional": false,
+      "resolved_duration": 9.48,
+      "timeline_in": 47.83,
+      "timeline_out": 57.31,
+      "source": {
+        "hint": "High Orbit",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 57.31s"
+      ]
+    },
+    {
+      "slot_id": "high-orbit-back",
+      "name": "High Orbit Back",
+      "description": "Same as the **High Orbit Front** clip, except for the back of the house.",
+      "optional": false,
+      "resolved_duration": 9.54,
+      "timeline_in": 57.31,
+      "timeline_out": 66.85,
+      "source": {
+        "hint": "High Orbit",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 66.85s"
+      ]
+    },
+    {
+      "slot_id": "mid-orbit-back",
+      "name": "Mid Orbit Back",
+      "description": "Same as the **Mid Orbit Front** clip for the back of the house.",
+      "optional": false,
+      "resolved_duration": 9.47,
+      "timeline_in": 66.85,
+      "timeline_out": 76.32,
+      "source": {
+        "hint": "Mid Orbit",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 76.32s"
+      ]
+    },
+    {
+      "slot_id": "pan-back",
+      "name": "Pan Back",
+      "description": "Same as the **Pan Front** clip for the back of the house.",
+      "optional": false,
+      "resolved_duration": 9.52,
+      "timeline_in": 76.32,
+      "timeline_out": 85.84,
+      "source": {
+        "hint": "Pan Front",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "resolved from cut point @ 85.84s"
+      ]
+    },
+    {
+      "slot_id": "features",
+      "name": "Features",
+      "description": "If there are any special features for the house, those clips are included here.",
+      "optional": true,
+      "resolved_duration": 0.0,
+      "timeline_in": 85.84,
+      "timeline_out": 85.84,
+      "source": {
+        "hint": "Features",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "notes": [
+        "skipped (optional, unmapped) - no timeline time"
+      ]
+    },
+    {
+      "slot_id": "departure",
+      "name": "Departure",
+      "description": "This is the closing clip. It should be 10-20 seconds long. The title overlay fades in quickly at 5 seconds before the end of the clip and remains to the end. A slow fade to black and the music volume also fades starting at 5 seconds before the end.",
+      "optional": false,
+      "target_duration": 15.0,
+      "min_duration": 10.0,
+      "max_duration": 20.0,
+      "resolved_duration": 14.84,
+      "timeline_in": 85.84,
+      "timeline_out": 100.68,
+      "source": {
+        "hint": "Departure",
+        "status": "unmapped"
+      },
+      "transition_in": {
+        "type": "cut",
+        "align": "on-beat"
+      },
+      "overlays": [
+        {
+          "type": "title",
+          "text": "${address}",
+          "start": "end-5",
+          "end": "end",
+          "fade_in": 1.0
+        }
+      ],
+      "video_effects": [
+        {
+          "type": "fade_out",
+          "duration": 5.0,
+          "anchor": "end"
+        }
+      ],
+      "audio": {
+        "fade_out": 5.0
+      },
+      "notes": [
+        "fade to black last 5s",
+        "music fade-out last 5s",
+        "title ${address} last 5s",
+        "resolved from cut point @ 100.7s"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# Sample project using real media from /home/lappy/Videos/sample-clips
+# Clips: 10x 4K drone MP4s + bensound-acousticbreeze.mp3 (fits exterior-showcase; `features` slot optional/missing)
+name: sample-clips-exterior
+template: ../../templates/exterior-showcase.md
+
+clips_dir: /home/lappy/Videos/sample-clips
+soundtrack: /home/lappy/Videos/sample-clips/bensound-acousticbreeze.mp3
+
+sources_manifest: output/sources.yaml
+output_dir: output
+timeline_path: output/timeline.json
+analysis_path: output/analysis.json
+
+analysis:
+  # Manual cut points (end boundaries, seconds) for the 10 rendered segments in order:
+  # [high-approach-front, mid-orbit-front, pan-front, approach-door, rise-up,
+  #  high-orbit-front, high-orbit-back, mid-orbit-back, pan-back, departure]
+  # (optional unmapped `features` is skipped and consumes no time).
+  # Tuned to detected onsets/phrase beats (examples ~10,19,38,57,76s => peaks ~10.8,19.3,38.3,57.3,76.3).
+  cut_points: [10.82, 19.3, 28.82, 38.31, 47.83, 57.31, 66.85, 76.32, 85.84, 100.68]
+
+ollama:
+  host: http://192.168.11.136:11434
+  model: qwen3-vl:latest
+  # vision_model defaults to model
+  timeout: 240
+
+render:
+  # 4K sources; preview (720p/veryfast) is recommended for tuning, then remove preview/raise quality for final output.
+  width: 1920
+  height: 1080
+  fps: 30
+  crf: 20
+  preset: medium
+  fontfile: /usr/share/fonts/truetype/ubuntu/Ubuntu-M.ttf
+  probe: true
+
+variables:
+  address: "123 Main St\nLittle Rock, Arkansas"
