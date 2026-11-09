@@ -1,6 +1,16 @@
 # Alvex Editor
 
-Template-driven, beat-aligned video production (primary use case: real-estate exterior showcase). Produces deterministic timelines and renders with FFmpeg. Can be driven from the CLI, as a Python API, or by AI agents (MCP / `--json`) — **AI suggestions require human confirmation**.
+Template-driven, beat-aligned video production (primary use case: real-estate exterior showcase). Produces deterministic timelines and renders with FFmpeg. Drive it via CLI, Python API, or AI agents (MCP / `--json`) — **AI suggestions require human confirmation**.
+
+## Concepts
+
+- **Workspace** (`~/Alvex` by default): All user work lives outside the repo in `templates/`, `soundtracks/`, and `projects/`. Keeps media/artifacts separate from code.
+- **Template** (`.md`): Defines the edit structure (segments/slots like intro, orbits, pans, approach, departure). Bundled example in `templates/exterior-showcase.md`; add custom templates to workspace `~/Alvex/templates/`.
+- **Soundtrack**: Audio track used for pacing. Import into `~/Alvex/soundtracks/` registry; curated cut points (beat boundaries) can be saved per track and reused across projects ("map once, reuse").
+- **Project**: A job in `~/Alvex/projects/<slug>/` with `alvex.json` config, working files in `output/` (analysis, timeline, manifests, previews, final renders).
+- **Timeline** (`timeline.json`): Resolved edit plan with segment timings synced to cut points.
+- **Manifest** (`sources.json`): Maps template slots to specific clip files and optional in/out points.
+- **Preview/Final**: `output/preview.mp4` for review; `output/final.mp4` on explicit finalize. Renders use FFmpeg.
 
 ## Quick start (chat UX in fewest steps)
 
@@ -165,6 +175,27 @@ Cross-platform (Linux/Windows/macOS). Snap-confined ffmpeg on Linux is handled (
 - **MCP server (primary)**: `alvex-editor-mcp` (stdio). Tools cover workspace/templates/soundtracks/projects/plan/render/cuts/align/select. See [`docs/alvex-editor-agent-guide.md`](docs/alvex-editor-agent-guide.md).
 - **OpenWebUI + Docker**: See [`docs/openwebui-docker.md`](docs/openwebui-docker.md) for setup. File access can be tricky in Docker — mounting volumes or running MCP on the host is often easiest.
 - **Discover MCP config**: `alvex-editor mcp` prints config snippets for Claude Desktop, OpenWebUI, Continue, Cline/RooCode.
+
+## Curating cut points (map once, reuse) via chat
+
+1. **Import the track**: In chat, say "Import this soundtrack into the registry: /path/to/song.mp3 as 'my-song'". The agent will copy it to `~/Alvex/soundtracks/<id>/`.
+2. **Get cut point candidates**: While working on a project, ask "Analyze the soundtrack and suggest cut points for this project." The agent will detect onsets and propose cut points aligned to your template.
+3. **Review and refine**: Ask to see the boundaries ("Show me the cut points with slot labels") and preview them ("Render a preview with these cut points"). Request nudges if needed ("Nudge the cut near 38s to the second beat of the pair").
+4. **Save (explicit confirmation required)**: When you're happy, ask "Save these cut points to the soundtrack registry for 'my-song' so future projects can reuse them." The agent will show them for review and only save after you explicitly confirm. They're stored in `~/Alvex/soundtracks/<id>/cut-points.json`.
+
+AI suggestions and saving curated cuts are never auto-applied - always confirm with the user.
+
+## Creating a template via chat
+
+Templates define the edit structure (slots like intro, orbits, pans, approach, departure). See `templates/exterior-showcase.md` for the format.
+
+1. **Describe your needs**: In chat, say "Create a new video template for [your use case]. I need slots for: [describe shots in order]." Include details like intro/outro requirements, overlays/titles, fades, and timing preferences.
+2. **Review the draft**: The agent will generate a Markdown template following the template spec. Review it with you, explaining slots, timing, and overlays.
+3. **Refine**: Ask for changes ("Add a slot for drone reveal", "Make the outro longer", etc.). The agent iterates until it matches your needs.
+4. **Save to workspace**: Ask "Save this template to the workspace as 'my-template'". The agent will save it to `~/Alvex/templates/my-template.md` (outside the repo). You can then use it with `--template my-template` or reference it by name/alias.
+5. **Test**: Create a project with the new template and run a preview to verify the structure works as expected.
+
+All templates must go in the workspace (`~/Alvex/templates/`) so they're reusable and outside the repo.
 
 ## Presets
 Set `preset`/`style_preset` in `alvex.json` to load defaults from `project_dir/presets/`, `project_dir/`, or workspace `~/Alvex/presets/<name>.json` (JSON). Project values override preset values via deep merge.
