@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-from typing import Iterable
+from typing import Any, Iterable
 
 from .audio import analyze_soundtrack, resolve_timing
 from .config import ProjectConfig
@@ -66,6 +66,67 @@ def map_sources(segments: Iterable[Segment], clips: list[Path]) -> None:
         remaining.remove(best)
 
 
+def _timing_num(timing: dict[str, Any], key: str) -> float | None:
+    if key not in timing or timing[key] is None:
+        return None
+    try:
+        val = float(timing[key])
+    except (TypeError, ValueError):
+        return None
+    return val if val >= 0 else None
+
+
+def _apply_timing_overrides(segments: list[Segment], timing: dict[str, Any] | None) -> None:
+    if not timing or not segments:
+        return
+
+    intro_fade = _timing_num(timing, "intro_fade_seconds")
+    intro_title_after = _timing_num(timing, "intro_title_after_seconds")
+    intro_title_dur = _timing_num(timing, "intro_title_duration_seconds")
+    outro_fade = _timing_num(timing, "outro_fade_seconds")
+    outro_title_before = _timing_num(timing, "outro_title_before_end_seconds")
+
+    intro = segments[0]
+    if intro_fade is not None:
+        for eff in intro.video_effects or []:
+            if isinstance(eff, dict) and eff.get("type") == "fade_in":
+                eff["duration"] = intro_fade
+        if intro.audio.fade_in is not None or intro_fade is not None:
+            intro.audio.fade_in = intro_fade
+    if intro_title_after is not None or intro_title_dur is not None:
+        for ov in intro.overlays or []:
+            if ov.type != "title" or ov.text != "${address}":
+                continue
+            if isinstance(ov.start, (int, float)) or isinstance(ov.end, (int, float)):
+                start = intro_title_after if intro_title_after is not None else (float(ov.start) if isinstance(ov.start, (int, float)) else 0.0)
+                if intro_title_dur is not None:
+                    end = start + intro_title_dur
+                elif isinstance(ov.end, (int, float)) and isinstance(ov.start, (int, float)):
+                    end = start + (float(ov.end) - float(ov.start))
+                else:
+                    end = ov.end
+                ov.start = start
+                ov.end = end
+                break
+
+    outro = segments[-1]
+    if outro_fade is not None:
+        for eff in outro.video_effects or []:
+            if isinstance(eff, dict) and eff.get("type") == "fade_out" and (eff.get("anchor") == "end" or eff.get("start") is None):
+                eff["duration"] = outro_fade
+        if outro.audio.fade_out is not None or outro_fade is not None:
+            outro.audio.fade_out = outro_fade
+    if outro_title_before is not None:
+        for ov in outro.overlays or []:
+            if ov.type != "title" or ov.text != "${address}":
+                continue
+            s = ov.start
+            if (isinstance(s, str) and s.strip().lower().startswith("end")) or ov.end == "end":
+                ov.start = f"end-{outro_title_before:g}"
+                ov.end = "end"
+                break
+
+
 def build_plan(
     config: ProjectConfig,
     *,
@@ -107,6 +168,8 @@ def build_plan(
     elif clips_dir and not clips_dir.exists():
         for seg in segments:
             seg.notes.append(f"clips_dir missing: {clips_dir}")
+
+    _apply_timing_overrides(segments, getattr(config, "timing", None))
 
     analysis = analyze_soundtrack(config, segments, write_cache=write_analysis_cache) if analyze else None
     timeline = Timeline(

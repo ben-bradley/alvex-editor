@@ -82,6 +82,13 @@ variables:
 analysis:
   backend: auto
   # cut_points: [10.82, 19.3, ...]   # curated/explicit (win over detection)
+timing:
+  # optional per-project intro/outro timing overrides (template values are defaults when unset)
+  # intro_fade_seconds: 5.0
+  # intro_title_after_seconds: 1.0
+  # intro_title_duration_seconds: 5.0
+  # outro_fade_seconds: 7.0
+  # outro_title_before_end_seconds: 7.0
 render:
   fontfile: /path/to/font.ttf
   # optional per-project knobs (defaults shown where applicable):

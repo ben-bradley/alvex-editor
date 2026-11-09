@@ -23,6 +23,7 @@ class ProjectConfig:
     sources_manifest: str | None = None
     variables: dict[str, Any] = field(default_factory=dict)
     analysis: dict[str, Any] = field(default_factory=dict)
+    timing: dict[str, Any] = field(default_factory=dict)
     ollama: dict[str, Any] = field(default_factory=dict)
     name: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
@@ -106,6 +107,7 @@ def load_config(path: str | Path) -> ProjectConfig:
         sources_manifest=data.get("sources_manifest") or data.get("manifest"),
         variables=data.get("variables") or {},
         analysis=analysis,
+        timing=data.get("timing") or {},
         ollama=data.get("ollama") or {},
         name=data.get("name"),
         raw=data,
