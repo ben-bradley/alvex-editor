@@ -37,6 +37,8 @@ class RenderOptions:
     # drawtext position expressions (ffmpeg); default centered
     title_x: str = "(w-text_w)/2"
     title_y: str = "(h-text_h)/2"
+    # extra ffmpeg video filters applied per segment (after base format, before fades/overlays), e.g. ["hqdn3d=2:1.5:3:3", "vibrance=intensity=0.1"]
+    video_filters: list[str] = field(default_factory=list)
     preview: bool = False
     probe: bool = True
     strict_duration: bool = False
@@ -46,8 +48,11 @@ class RenderOptions:
         data = data or {}
         opts = cls()
         for k, v in data.items():
-            if hasattr(opts, k) and v is not None:
-                setattr(opts, k, v)
+            if not hasattr(opts, k) or v is None:
+                continue
+            if k == "video_filters" and isinstance(v, str):
+                v = [f.strip() for f in v.split(",") if f.strip()]
+            setattr(opts, k, v)
         if opts.preview:
             opts.width = min(opts.width, 1280)
             opts.height = min(opts.height, 720)
@@ -183,10 +188,11 @@ def _default_fontfile() -> str | None:
 
 def _ff_escape_text(text: str) -> str:
     # ffmpeg drawtext text value escaping (for use inside text='...').
+    # filter_complex is passed via argv (no shell). For this ffmpeg/Windows
+    # path, drawtext line breaks work when the text contains an actual newline
+    # character (see nl_d_ctrl test); keep \n as a literal newline.
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = text.replace("\n", r"\\n")  # drawtext line break (escaped for filter graph)
-    text = text.replace("\\", "\\\\") if False else text  # backslashes handled minimally
-    # escape filter-special chars (but preserve \\n we just inserted)
+    # keep actual newlines for drawtext line breaks
     text = text.replace(":", "\\:")
     text = text.replace("'", "\u2019")  # normalize apostrophes for simplicity
     text = text.replace("%", "\\%")
@@ -209,6 +215,9 @@ def _build_video_chain(seg: Segment, idx: int, input_index: int, seg_dur: float,
         f"fps={opts.fps}",
         f"format={opts.pixel_format}",
     ]
+    for vf in (opts.video_filters or []):
+        if vf and isinstance(vf, str):
+            filters.append(vf)
     for eff in seg.video_effects or []:
         if not isinstance(eff, dict):
             continue
@@ -240,14 +249,15 @@ def _build_video_chain(seg: Segment, idx: int, input_index: int, seg_dur: float,
         elif sys.platform != "linux":
             fontfile = _default_fontfile()
         if fontfile:
-            parts.append(f"fontfile={_ff_path(Path(fontfile))}")
+            parts.append(f"fontfile='{_ff_path(Path(fontfile))}'")
         else:
             parts.append(f"font={_ff_escape_text(opts.font)}")
         parts.append(f":text='{text}'")
         parts.append(f":fontsize={opts.fontsize}")
         parts.append(f":fontcolor={opts.fontcolor}")
         parts.append(f":x={opts.title_x}:y={opts.title_y}")
-        if "\\n" in text:
+        parts.append(":text_align=C")
+        if "\\n" in text or "\n" in text:
             parts.append(":line_spacing=8")
         if opts.box:
             parts.append(f":box=1:boxcolor={opts.boxcolor}:boxborderw={opts.boxborderw}")

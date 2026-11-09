@@ -30,4 +30,4 @@ This defines the template to use to edit the clips together into a final video. 
 8. **Mid Orbit Back** - Same as the **Mid Orbit Front** clip for the back of the house.
 9. **Pan Back** - Same as the **Pan Front** clip for the back of the house.
 10. **Features** - If there are any special features for the house, those clips are included here.
-11. **Departure** - This is the closing clip. It should be 10-20 seconds long. The title overlay fades in quickly at 5 seconds before the end of the clip and remains to the end. A slow fade to black and the music volume also fades starting at 5 seconds before the end.
+11. **Departure** - This is the closing clip. It should be 10-20 seconds long. The title overlay fades in quickly at 7 seconds before the end of the clip and remains to the end. A slow fade to black and the music volume also fades starting at 7 seconds before the end.
