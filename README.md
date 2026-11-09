@@ -109,12 +109,12 @@ All commands support `--json` for machine-readable output.
 ## Use from an AI chat / agent
 
 - **Session start:** confirm the visible workspace locations (`~/Alvex` with `templates/`, `soundtracks/`, `projects/`). Intake resolves template/soundtrack (curated cut points reused) → `init` scaffolds a project → **preview** → feedback/iterate → **final on explicit intent**. On duplicate projects the agent asks what to do (non-interactive requires explicit `--on-exists`).
-- **MCP server (recommended for MCP clients):** `alvex-editor-mcp` (stdio). Tools include `workspace_info`, `list_templates`, `list_soundtracks`, `init_project`, `import_soundtrack`, `save_soundtrack_cut_points`, `project_status`, `doctor`, `template_info`, `analyze_soundtrack`, `plan_timeline`, `cuts_show`, `cuts_suggest`, `cuts_nudge` (suggestions, confirm-gated), `cuts_apply`/`cuts_preview` (explicit), `suggest_clip_mapping`, `suggest_inpoints`, `apply_manifest`, `render_video`. Suggestions/saved cuts are confirm-gated; `render_video` defaults `preview=true` (final only on explicit intent). Project-aware render/preview re-plans from current config unless `no_plan=true`.
+- **MCP server (primary):** `alvex-editor-mcp` (stdio). Works with OpenWebUI, Claude Desktop, Continue, Cline, RooCode, etc. Run `alvex-editor mcp` for config snippets. See [`docs/openwebui-docker.md`](docs/openwebui-docker.md). Tools include `workspace_info`, `list_templates`, `list_soundtracks`, `init_project`, `import_soundtrack`, `save_soundtrack_cut_points`, `project_status`, `doctor`, `template_info`, `analyze_soundtrack`, `plan_timeline`, `cuts_show`, `cuts_suggest`, `cuts_nudge` (suggestions, confirm-gated), `cuts_apply`/`cuts_preview` (explicit), `suggest_clip_mapping`, `suggest_inpoints`, `apply_manifest`, `render_video`. Suggestions/saved cuts are confirm-gated; `render_video` defaults `preview=true` (final only on explicit intent). Project-aware render/preview re-plans from current config unless `no_plan=true`. **Core workflow does not require Ollama**; AI features (`align`/`select`) are optional.
 - **Shell/JSON fallback:** `alvex-editor <command> --json` (all commands, including `workspace`, `doctor`, `init`, `templates`, `soundtracks`). Errors should return valid JSON in `--json` mode. If ffmpeg is installed but not on PATH, run `doctor --json` for resolved paths/hints (`FFMPEG`/`FFPROBE`).
 - **Python API:** `alvex_editor.api` (structured, JSON-safe).
 - **Canonical workflow + safety rules:** [`docs/alvex-editor-agent-guide.md`](docs/alvex-editor-agent-guide.md). Repo adapters: [`AGENTS.md`](AGENTS.md), [`.opencode/skills/alvex-editor/SKILL.md`](.opencode/skills/alvex-editor/SKILL.md).
 
-> AI is **Ollama-only** and optional. Point `ollama` config at your existing model (e.g. `qwen3-vl:latest`). AI outputs and curated cut-point saves are **never auto-applied** — **review and explicitly confirm** before applying/saving. Prefer `--dry-run`/`--preview`; final render only on explicit intent.
+> AI features (`align`/`select`) are **optional** and use **Ollama** by default (e.g. `qwen3-vl:latest`). The core workflow (init/plan/render) works without Ollama. AI outputs and curated cut-point saves are **never auto-applied** — **review and explicitly confirm** before applying/saving. Prefer `--dry-run`/`--preview`; final render only on explicit intent.
 
 ## How it works
 - **Templates**: Markdown in `templates/` (`docs/template-spec.md`).
@@ -136,5 +136,13 @@ PYTHONPATH=src pytest -q
 ```
 Cross-platform (Linux/Windows/macOS). Snap-confined ffmpeg on Linux is handled (home-visible temp/cache dirs).
 
+## Chat UX & MCP
+- **MCP server (primary)**: `alvex-editor-mcp` (stdio). Tools cover workspace/templates/soundtracks/projects/plan/render/cuts/align/select. See [`docs/alvex-editor-agent-guide.md`](docs/alvex-editor-agent-guide.md).
+- **OpenWebUI + Docker**: See [`docs/openwebui-docker.md`](docs/openwebui-docker.md) for setup. File access can be tricky in Docker — mounting volumes or running MCP on the host is often easiest.
+- **Discover MCP config**: `alvex-editor mcp` prints config snippets for Claude Desktop, OpenWebUI, Continue, Cline/RooCode.
+
+## Presets
+Set `preset`/`style_preset` in `alvex.json` to load defaults from `project_dir/presets/`, `project_dir/`, or workspace `~/Alvex/presets/<name>.json` (JSON). Project values override preset values via deep merge.
+
 ## License
-TBD — add a `LICENSE` file before publishing.
+MIT License — see [`LICENSE`](LICENSE).

@@ -6,9 +6,28 @@ build-backend = "setuptools.build_meta"
 name = "alvex-editor"
 version = "0.1.0"
 description = "Alvex Editor - template-driven video editing and production"
-readme = "instructions.md"
+readme = "README.md"
 requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Alvex Editor" },
+]
 dependencies = []
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Multimedia :: Video",
+]
+
+[project.urls]
+Homepage = "https://github.com/ben-bradley/alvex-editor"
+Repository = "https://github.com/ben-bradley/alvex-editor"
+Issues = "https://github.com/ben-bradley/alvex-editor/issues"
 
 [project.optional-dependencies]
 dev = [

@@ -53,6 +53,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         f"ffmpeg: {ff.get('ffmpeg')} (found={ff.get('ffmpeg_found')}, PATH={ff.get('path_ffmpeg')})",
         f"ffprobe: {ff.get('ffprobe')} (found={ff.get('ffprobe_found')}, PATH={ff.get('path_ffprobe')})",
         f"python={r.get('python')} platform={r.get('platform')}",
+        "Ollama: optional (only needed for AI features like align/select). Core workflow works without it.",
     ]
     for issue in (r.get("issues") or []):
         lines.append(f"! issue: {issue}")
@@ -235,6 +236,7 @@ def cmd_workspace(args: argparse.Namespace) -> int:
         f"  soundtracks: {w.get('soundtracks_dir')}",
         f"  projects:    {w.get('projects_dir')}",
         f"Templates: {len(r.get('templates') or [])} | Soundtracks: {len(r.get('soundtracks') or [])}",
+        "Note: Keep all projects/assets outside the repo (this workspace satisfies the policy). Core workflow works without Ollama.",
     ]
     return _emit(args, r, lines)
 
@@ -275,10 +277,15 @@ def cmd_templates(args: argparse.Namespace) -> int:
     r = api.templates_list(workspace=getattr(args, "workspace", None))
     if not r.get("ok"):
         return _emit(args, r)
+    w = r.get("workspace") or {}
     lines = [f"Templates ({len(r.get('templates') or [])}):"]
     for t in r.get("templates") or []:
         aliases = f" aliases={','.join(t.get('aliases') or [])}" if t.get('aliases') else ""
         lines.append(f"  - {t['id']} [{t['source']}]: {t['path']}{aliases}")
+    if not getattr(args, "json", False):
+        tdir = w.get("templates_dir")
+        if tdir:
+            lines.append(f"Tip: Add custom templates to {tdir} (workspace, outside repo). Use aliases for convenience.")
     return _emit(args, r, lines)
 
 
@@ -307,6 +314,83 @@ def cmd_soundtracks(args: argparse.Namespace) -> int:
     for s in r.get("soundtracks") or []:
         lines.append(f"  - {s['id']}: {s.get('path')} curated_cuts={s.get('has_curated_cut_points')}")
     return _emit(args, r, lines)
+
+
+def cmd_mcp(args: argparse.Namespace) -> int:
+    """Print MCP server configuration snippets for common clients."""
+    import os
+
+    python = sys.executable or "python"
+    # Try to suggest module invocation
+    snippets = {
+        "claude_desktop": {
+            "mcpServers": {
+                "alvex-editor": {
+                    "command": python,
+                    "args": ["-m", "alvex_editor.mcp_server"],
+                    "env": {}
+                }
+            }
+        },
+        "continue": {
+            "models": [],
+            "mcpServers": [
+                {
+                    "name": "alvex-editor",
+                    "command": python,
+                    "args": ["-m", "alvex_editor.mcp_server"]
+                }
+            ]
+        },
+        "openwebui": {
+            "note": "In OpenWebUI, add an MCP server via Admin > Settings > Tools > MCP Servers with command/args as below.",
+            "command": python,
+            "args": ["-m", "alvex_editor.mcp_server"],
+            "transport": "stdio",
+            "tips": [
+                "If running OpenWebUI in Docker, mount your workspace (e.g., ~/Alvex) and any clip directories as volumes so paths are accessible inside the container.",
+                "Use the same absolute paths inside the container or set ALVEX_WORKSPACE to the mounted path.",
+                "Ensure ffmpeg/ffprobe are available in the environment where the MCP server runs (or set FFMPEG/FFPROBE)."
+            ]
+        },
+        "cline_roo": {
+            "mcpServers": {
+                "alvex-editor": {
+                    "command": python,
+                    "args": ["-m", "alvex_editor.mcp_server"]
+                }
+            }
+        }
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(snippets, indent=2))
+        return 0
+    lines = [
+        "Alvex Editor MCP server configuration",
+        f"Command: {python} -m alvex_editor.mcp_server",
+        "",
+        "Claude Desktop (claude_desktop_config.json):",
+        json.dumps(snippets["claude_desktop"], indent=2),
+        "",
+        "Continue.dev (config.json):",
+        json.dumps(snippets["continue"], indent=2),
+        "",
+        "Cline/RooCode:",
+        json.dumps(snippets["cline_roo"], indent=2),
+        "",
+        "OpenWebUI (Docker notes):",
+        "  Add MCP server with transport stdio, command: " + python,
+        "  args: [\"-m\", \"alvex_editor.mcp_server\"]",
+        "  Tips:",
+        "    - Mount workspace: -v ~/Alvex:/data/Alvex and set ALVEX_WORKSPACE=/data/Alvex",
+        "    - Mount clips/sources: -v /path/to/clips:/data/clips (use paths matching inside container)",
+        "    - Install ffmpeg in the MCP server environment or mount it; set FFMPEG/FFPROBE if needed",
+        "    - Core workflow doesn't require Ollama; AI features (align/select) need Ollama accessible from MCP env",
+        "",
+        "Tip: If installed as a package, 'alvex-editor-mcp' is also available as an entry point.",
+    ]
+    print("\n".join(lines))
+    return 0
 
 
 
@@ -512,6 +596,10 @@ def build_parser() -> argparse.ArgumentParser:
     select.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     select.set_defaults(func=cmd_select)
 
+
+    mcp = sub.add_parser("mcp", help="Print MCP server configuration snippets for Claude Desktop, OpenWebUI, Continue, Cline/RooCode")
+    mcp.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    mcp.set_defaults(func=cmd_mcp)
 
     cuts = sub.add_parser('cuts', help='Author/review cut points (slot-labeled, nudge/2nd-of-pair suggestions, apply/preview). Suggestions are confirm-gated.')
     cuts.add_argument('--json', action='store_true', help='Output machine-readable JSON')
