@@ -119,3 +119,24 @@ def test_build_plan_then_render_dry_run_with_manifest(tmp_path):
     assert "fade=t=in" in plan.filter_complex
     assert "afade=t=out" in plan.filter_complex
     assert "[vout]" in plan.command and "[aout]" in plan.command
+
+
+def test_render_options_text_align_and_position():
+    opts = RenderOptions.from_dict({
+        "title_x": "60",
+        "title_y": "h-text_h-60",
+        "text_align": "L",
+        "video_filters": ["eq=contrast=1.05:saturation=1.1"],
+    })
+    assert opts.title_x == "60"
+    assert opts.title_y == "h-text_h-60"
+    assert opts.text_align == "L"
+    assert opts.video_filters == ["eq=contrast=1.05:saturation=1.1"]
+    tl = _timeline_with_timing()
+    plan = build_render_plan(tl, "/out/final.mp4", options=opts)
+    assert ":x=60:y=h-text_h-60" in plan.filter_complex
+    assert ":text_align=L" in plan.filter_complex
+    assert "eq=contrast=1.05:saturation=1.1" in plan.filter_complex
+    # default remains centered
+    plan_default = build_render_plan(_timeline_with_timing(), "/out/final.mp4")
+    assert ":text_align=C" in plan_default.filter_complex

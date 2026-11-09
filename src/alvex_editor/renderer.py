@@ -35,9 +35,10 @@ class RenderOptions:
     box: bool = False
     boxcolor: str = "black@0.4"
     boxborderw: int = 12
-    # drawtext position expressions (ffmpeg); default centered
+    # drawtext position/alignment expressions (ffmpeg); defaults centered
     title_x: str = "(w-text_w)/2"
     title_y: str = "(h-text_h)/2"
+    text_align: str = "C"  # L/C/R (and other ffmpeg drawtext align values)
     # extra ffmpeg video filters applied per segment (after base format, before fades/overlays), e.g. ["hqdn3d=2:1.5:3:3", "vibrance=intensity=0.1"]
     video_filters: list[str] = field(default_factory=list)
     preview: bool = False
@@ -257,7 +258,7 @@ def _build_video_chain(seg: Segment, idx: int, input_index: int, seg_dur: float,
         parts.append(f":fontsize={opts.fontsize}")
         parts.append(f":fontcolor={opts.fontcolor}")
         parts.append(f":x={opts.title_x}:y={opts.title_y}")
-        parts.append(":text_align=C")
+        parts.append(f":text_align={opts.text_align or 'C'}")
         if "\\n" in text or "\n" in text:
             parts.append(":line_spacing=8")
         if opts.box:

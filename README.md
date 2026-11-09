@@ -84,6 +84,11 @@ analysis:
   # cut_points: [10.82, 19.3, ...]   # curated/explicit (win over detection)
 render:
   fontfile: /path/to/font.ttf
+  # optional per-project knobs (defaults shown where applicable):
+  # title_x: "(w-text_w)/2"      # ffmpeg drawtext x (centered)
+  # title_y: "(h-text_h)/2"      # ffmpeg drawtext y (centered)
+  # text_align: C                 # L/C/R for multi-line titles
+  # video_filters: ["eq=contrast=1.05:saturation=1.1"]  # color/vibrancy/grading
 ```
 
 > **Storage policy:** videos, soundtracks, thumbnails, and edit plans/manifests/analysis are written **outside the Alvex Editor codebase** (the app enforces this). The visible workspace `~/Alvex` satisfies this. Only the bundled example template (`templates/exterior-showcase.md`) is kept in-repo. For local development/tests only: `ALVEX_ALLOW_IN_REPO_WRITES=1`.
