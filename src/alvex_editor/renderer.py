@@ -35,9 +35,9 @@ class RenderOptions:
     box: bool = False
     boxcolor: str = "black@0.4"
     boxborderw: int = 12
-    # drawtext position/alignment expressions (ffmpeg); defaults centered
+    # drawtext position/alignment expressions (ffmpeg); defaults: centered horizontally, bottom-third vertically
     title_x: str = "(w-text_w)/2"
-    title_y: str = "(h-text_h)/2"
+    title_y: str = "h*2/3-text_h/2"
     text_align: str = "C"  # L/C/R (and other ffmpeg drawtext align values)
     # extra ffmpeg video filters applied per segment (after base format, before fades/overlays), e.g. ["hqdn3d=2:1.5:3:3", "vibrance=intensity=0.1"]
     video_filters: list[str] = field(default_factory=list)

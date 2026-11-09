@@ -21,7 +21,7 @@ sources:
 - Per-segment video: `trim` (source `in_point` → `in_point+resolved_duration`) → normalize (`scale`/`pad`/`fps`/format) → `video_effects` (`fade_in`, `fade_out`, `anchor=end`) → `drawtext` overlays (titles, `${vars}`, `start`/`end` incl. `end-N` refs).
 - Sequencing: hard cuts via `concat=n=N:v=1:a=0` on resolved boundaries.
 - Audio: soundtrack `atrim` to total + `afade` in/out derived from segment audio effects (e.g., intro music fade-in, outro fade-out).
-- Configurable output via `render:` in `alvex.yaml`, e.g. `width/height/fps/crf/preset/preview`, `fontfile`/font for drawtext, `title_x`/`title_y` (ffmpeg drawtext position expressions; defaults centered), `text_align` (`L`/`C`/`R`, default `C`), `video_filters` (extra per-segment ffmpeg video filters, e.g. color grading/vibrancy: `["eq=contrast=1.05:saturation=1.1","vibrance=intensity=0.08"]`), `probe`, `strict_duration`.
+- Configurable output via `render:` in `alvex.yaml`, e.g. `width/height/fps/crf/preset/preview`, `fontfile`/font for drawtext, `title_x`/`title_y` (ffmpeg drawtext position expressions; defaults: `title_x` centered `(w-text_w)/2`, `title_y` bottom-third `h*2/3-text_h/2`), `text_align` (`L`/`C`/`R`, default `C`), `video_filters` (extra per-segment ffmpeg video filters, e.g. color grading/vibrancy: `["eq=contrast=1.05:saturation=1.1","vibrance=intensity=0.08"]`), `probe`, `strict_duration`. Override `title_x`/`title_y`/`text_align` per project as needed.
 
 ## Validation & probing (Phase 3b)
 

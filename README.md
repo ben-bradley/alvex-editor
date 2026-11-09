@@ -85,8 +85,8 @@ analysis:
 render:
   fontfile: /path/to/font.ttf
   # optional per-project knobs (defaults shown where applicable):
-  # title_x: "(w-text_w)/2"      # ffmpeg drawtext x (centered)
-  # title_y: "(h-text_h)/2"      # ffmpeg drawtext y (centered)
+  # title_x: "(w-text_w)/2"      # centered horizontally
+  # title_y: "h*2/3-text_h/2"    # bottom-third (default)
   # text_align: C                 # L/C/R for multi-line titles
   # video_filters: ["eq=contrast=1.05:saturation=1.1"]  # color/vibrancy/grading
 ```
