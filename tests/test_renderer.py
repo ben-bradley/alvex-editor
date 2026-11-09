@@ -49,8 +49,8 @@ def _timeline_with_timing() -> Timeline:
 
 
 def test_manifest_apply(tmp_path):
-    mpath = tmp_path / "sources.yaml"
-    mpath.write_text("sources:\n  intro: /clips/intro.mp4\n  main:\n    path: clips/main.mp4\n    in_point: 1.5\n", encoding="utf-8")
+    mpath = tmp_path / "sources.json"
+    mpath.write_text(json.dumps({"sources": {"intro": "/clips/intro.mp4", "main": {"path": "clips/main.mp4", "in_point": 1.5}}}, indent=2), encoding="utf-8")
     manifest = load_manifest(mpath)
     tl = _timeline_with_timing()
     tl.segments[0].source = SourceRef(status="unmapped")
@@ -91,21 +91,14 @@ def test_build_render_plan_structure():
 
 def test_build_plan_then_render_dry_run_with_manifest(tmp_path):
     template = (REPO / "templates" / "exterior-showcase.md").resolve()
-    cfg_path = tmp_path / "alvex.yaml"
-    cfg_path.write_text(
-        "\n".join(
-            [
-                "name: render-test",
-                f"template: {template}",
-                "soundtrack: /media/music.mp3",
-                "analysis:",
-                "  bpm: 120",
-                "variables:",
-                '  address: "456 Oak Ave"',
-            ]
-        ),
-        encoding="utf-8",
-    )
+    cfg_path = tmp_path / "alvex.json"
+    cfg_path.write_text(json.dumps({
+        "name": "render-test",
+        "template": str(template),
+        "soundtrack": "/media/music.mp3",
+        "analysis": {"bpm": 120},
+        "variables": {"address": "456 Oak Ave"},
+    }, indent=2), encoding="utf-8")
     cfg = load_config(cfg_path)
     tl = build_plan(cfg)
     # Map all slots (including optional features) to dummy sources.

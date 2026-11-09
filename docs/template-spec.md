@@ -35,7 +35,7 @@ Parser behavior (v0.1):
 
 ## Project variables
 
-Templates may reference project variables (e.g., `${address}` for titles). Values are supplied in the project config (`alvex.yaml`, `variables:`) rather than edited into the template.
+Templates may reference project variables (e.g., `${address}` for titles). Values are supplied in the project config (`alvex.json`, `variables:`) rather than edited into the template.
 
 ## Resolved timeline (`timeline.json`)
 

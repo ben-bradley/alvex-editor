@@ -5,12 +5,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from .policy import ensure_not_inside_repo
+from .structured import WORKSPACE_CONFIG_NAMES as _WS_CONFIG_NAMES, dump_structured, find_workspace_config, load_structured
 
 DEFAULT_WORKSPACE_NAME = "Alvex"
-WORKSPACE_CONFIG_NAMES = ("alvex-workspace.yaml", "workspace.yaml", "alvex.workspace.yaml")
+WORKSPACE_CONFIG_NAMES = _WS_CONFIG_NAMES
 
 
 def default_workspace_root() -> Path:
@@ -38,11 +37,11 @@ class Workspace:
 
     @property
     def config_path(self) -> Path:
-        for name in WORKSPACE_CONFIG_NAMES:
-            p = self.root / name
-            if p.exists():
-                return p
-        return self.root / WORKSPACE_CONFIG_NAMES[0]
+        found = find_workspace_config(self.root)
+        if found:
+            return found
+        # prefer JSON for new workspaces
+        return self.root / "alvex-workspace.json"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,11 +92,28 @@ def find_workspace_config(start: Path | None = None) -> Path | None:
     return None
 
 
+def load_workspace_config_data(path_or_ws: str | Path | Workspace | None = None) -> dict[str, Any]:
+    if isinstance(path_or_ws, Workspace):
+        cfg = path_or_ws.config_path if path_or_ws.config_path.exists() else find_workspace_config(path_or_ws.root)
+    elif path_or_ws:
+        p = Path(path_or_ws).expanduser()
+        cfg = p if p.is_file() else find_workspace_config(p)
+    else:
+        cfg = find_workspace_config()
+    if not cfg or not Path(cfg).exists():
+        return {}
+    try:
+        data = load_structured(cfg) or {}
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def load_workspace(path: str | Path | None = None, *, start: str | Path | None = None) -> Workspace:
     if path:
         p = Path(path).expanduser().resolve()
         if p.is_file():
-            data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+            data = load_structured(p) or {}
             if isinstance(data, dict) and data.get("root"):
                 return Workspace(root=Path(str(data["root"])).expanduser().resolve())
             # config lives inside workspace root
@@ -105,23 +121,27 @@ def load_workspace(path: str | Path | None = None, *, start: str | Path | None =
         return Workspace(root=p)
     cfg = find_workspace_config(Path(start) if start else None)
     if cfg:
-        data = yaml.safe_load(cfg.read_text(encoding="utf-8")) or {}
+        data = load_structured(cfg) or {}
         if isinstance(data, dict) and data.get("root"):
             return Workspace(root=Path(str(data["root"])).expanduser().resolve())
         return Workspace(root=cfg.parent.resolve())
     return Workspace(root=default_workspace_root())
 
 
-def save_workspace_config(ws: Workspace) -> Path:
+def save_workspace_config(ws: Workspace, extra: dict[str, Any] | None = None) -> Path:
     ensure_not_inside_repo(ws.root, kind="workspace")
     ws.root.mkdir(parents=True, exist_ok=True)
     path = ws.config_path
-    data = {
+    # JSON only
+    path = ws.root / "alvex-workspace.json" if path.suffix.lower() != ".json" else path
+    data: dict[str, Any] = {
         "version": 1,
         "root": str(ws.root),
         "templates_dir": str(ws.templates_dir),
         "soundtracks_dir": str(ws.soundtracks_dir),
         "projects_dir": str(ws.projects_dir),
     }
-    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    if extra:
+        data.update(extra)
+    dump_structured(path, data, fmt="json")
     return path

@@ -70,22 +70,14 @@ def test_resolve_timing_without_analysis_uses_targets():
 
 
 def test_plan_with_bpm_resolves_on_beat(tmp_path):
-    cfg_path = tmp_path / "alvex.yaml"
+    cfg_path = tmp_path / "alvex.json"
     template = (REPO / "templates" / "exterior-showcase.md").resolve()
-    cfg_path.write_text(
-        "\n".join(
-            [
-                "name: bpm-test",
-                f"template: {template}",
-                "analysis:",
-                "  bpm: 120",
-                "  offset: 0",
-                "variables:",
-                '  address: "1 Test St"',
-            ]
-        ),
-        encoding="utf-8",
-    )
+    cfg_path.write_text(json.dumps({
+        "name": "bpm-test",
+        "template": str(template),
+        "analysis": {"bpm": 120, "offset": 0},
+        "variables": {"address": "1 Test St"},
+    }, indent=2), encoding="utf-8")
     cfg = load_config(cfg_path)
     timeline = build_plan(cfg, map_clips=False)
     assert timeline.analysis.get("method") == "config.bpm"

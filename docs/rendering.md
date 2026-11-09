@@ -8,8 +8,8 @@ Phase 3 provides a **deterministic FFmpeg renderer** that consumes a resolved `t
 - **Soundtrack**: from the timeline/`--soundtrack`. Used as the master audio track (trimmed to total duration) with segment-derived audio fades.
 - **Variables**: `timeline.variables` (e.g., `address`) substitute `${name}` in overlay text.
 
-Manifest example (`sources.yaml`):
-```yaml
+Manifest example (`sources.json`):
+```json
 sources:
   high-approach-front: media/clips/intro.mp4
   features:
@@ -21,8 +21,8 @@ sources:
 - Per-segment video: `trim` (source `in_point` → `in_point+resolved_duration`) → normalize (`scale`/`pad`/`fps`/format) → `video_effects` (`fade_in`, `fade_out`, `anchor=end`) → `drawtext` overlays (titles, `${vars}`, `start`/`end` incl. `end-N` refs).
 - Sequencing: hard cuts via `concat=n=N:v=1:a=0` on resolved boundaries.
 - Audio: soundtrack `atrim` to total + `afade` in/out derived from segment audio effects (e.g., intro music fade-in, outro fade-out).
-- Configurable output via `render:` in `alvex.yaml`, e.g. `width/height/fps/crf/preset/preview`, `fontfile`/font for drawtext, `title_x`/`title_y` (ffmpeg drawtext position expressions; defaults: `title_x` centered `(w-text_w)/2`, `title_y` bottom-third `h*2/3-text_h/2`), `text_align` (`L`/`C`/`R`, default `C`), `video_filters` (extra per-segment ffmpeg video filters, e.g. color grading/vibrancy: `["eq=contrast=1.05:saturation=1.1","vibrance=intensity=0.08"]`), `probe`, `strict_duration`. Override `title_x`/`title_y`/`text_align` per project as needed.
-- Per-project timing overrides via `timing:` in `alvex.yaml` (applied during planning; template values remain defaults when unset). Intro/outro fade-ins/outs can be customized and decoupled: `intro_fade_seconds` (fallback), `intro_video_fade_seconds`, `intro_audio_fade_seconds`, `intro_title_after_seconds`, `intro_title_duration_seconds`, `outro_fade_seconds` (fallback), `outro_video_fade_seconds`, `outro_audio_fade_seconds`, `outro_audio_fade_out_before_end_seconds` (music fade completes N seconds before video end), `outro_title_before_end_seconds`. These target intro/outro address-title and fade effects (e.g., exterior-showcase intro/outro).
+- Configurable output via `render:` in `alvex.json`, e.g. `width/height/fps/crf/preset/preview`, `fontfile`/font for drawtext, `title_x`/`title_y` (ffmpeg drawtext position expressions; defaults: `title_x` centered `(w-text_w)/2`, `title_y` bottom-third `h*2/3-text_h/2`), `text_align` (`L`/`C`/`R`, default `C`), `video_filters` (extra per-segment ffmpeg video filters, e.g. color grading/vibrancy: `["eq=contrast=1.05:saturation=1.1","vibrance=intensity=0.08"]`), `probe`, `strict_duration`. Override `title_x`/`title_y`/`text_align` per project as needed.
+- Per-project timing overrides via `timing:` in `alvex.json` (applied during planning; template values remain defaults when unset). Intro/outro fade-ins/outs can be customized and decoupled: `intro_fade_seconds` (fallback), `intro_video_fade_seconds`, `intro_audio_fade_seconds`, `intro_title_after_seconds`, `intro_title_duration_seconds`, `outro_fade_seconds` (fallback), `outro_video_fade_seconds`, `outro_audio_fade_seconds`, `outro_audio_fade_out_before_end_seconds` (music fade completes N seconds before video end), `outro_title_before_end_seconds`. These target intro/outro address-title and fade effects (e.g., exterior-showcase intro/outro).
 
 ## Validation & probing (Phase 3b)
 
@@ -33,13 +33,13 @@ When `ffprobe` is available (default `probe: true`), Alvex probes mapped sources
 ## CLI
 
 ```bash
-alvex render -p alvex.yaml -m sources.yaml -o out/final.mp4
-alvex render -p alvex.yaml                          # uses config sources_manifest/timeline_path (auto-plans if missing)
-alvex render -p alvex.yaml --dry-run                # print command without running
-alvex render -p alvex.yaml --print-filter           # print filter_complex
-alvex render -p alvex.yaml --preview                # faster/lower-res preset
-alvex render -p alvex.yaml --strict-duration        # error if clips are too short
-alvex render -p alvex.yaml --no-probe               # skip ffprobe validation/clamping
+alvex render -p alvex.json -m sources.json -o out/final.mp4
+alvex render -p alvex.json                          # uses config sources_manifest/timeline_path (auto-plans if missing)
+alvex render -p alvex.json --dry-run                # print command without running
+alvex render -p alvex.json --print-filter           # print filter_complex
+alvex render -p alvex.json --preview                # faster/lower-res preset
+alvex render -p alvex.json --strict-duration        # error if clips are too short
+alvex render -p alvex.json --no-probe               # skip ffprobe validation/clamping
 ```
 
 `--dry-run`/`--print-filter` work without media/`ffmpeg` execution. Actual rendering requires `ffmpeg` on `PATH` (and drawtext needs a usable font/`fontfile`); probing uses `ffprobe` when available.

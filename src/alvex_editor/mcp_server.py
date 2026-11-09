@@ -83,8 +83,13 @@ def build_server():
 
     @mcp.tool()
     def project_status(project: str) -> dict[str, Any]:
-        """Inspect an Alvex project: config, template/soundtrack/clips presence, timeline/analysis cache, and ffmpeg/ffprobe/ollama availability."""
+        """Inspect an Alvex project: config, template/soundtrack/clips presence, timeline/analysis cache, sources manifest, resolved ffmpeg/ffprobe info, and ollama availability."""
         return api.project_status(project=project)
+
+    @mcp.tool()
+    def doctor(project: str | None = None) -> dict[str, Any]:
+        """Diagnose environment and optional project readiness: resolved ffmpeg/ffprobe paths (PATH/env/WinGet hints), platform, and project issues/notes (stale timeline soundtrack, missing manifest, etc.)."""
+        return api.doctor(project=project)
 
     @mcp.tool()
     def template_info(project: str) -> dict[str, Any]:
@@ -119,8 +124,33 @@ def build_server():
         return api.apply_manifest_file(project=project, suggested=suggested, target=target)
 
     @mcp.tool()
+    def cuts_show(project: str, cut_points: list[float] | None = None) -> dict[str, Any]:
+        """Show slot-labeled cut-point boundaries for a project (Features/optional-skipped aware). cut_points overrides config when provided."""
+        return api.cuts_show(project=project, cut_points=cut_points)
+
+    @mcp.tool()
+    def cuts_suggest(project: str, count: int | None = None, use_second_of_pair: bool = False, near: float | None = None) -> dict[str, Any]:
+        """Suggest template-aware cut points from cached onset/analysis candidates. Not applied (requires_confirmation). use_second_of_pair snaps to the 2nd onset in detected pairs."""
+        return api.cuts_suggest(project=project, count=count, use_second_of_pair=use_second_of_pair, near=near)
+
+    @mcp.tool()
+    def cuts_nudge(project: str, near: float, to: float | str, cut_points: list[float] | None = None) -> dict[str, Any]:
+        """Suggest nudging the cut point nearest `near` seconds to a value or pattern ("second-of-pair"/"nearest-onset"). Not applied (requires_confirmation)."""
+        return api.cuts_nudge(project=project, near=near, to=to, cut_points=cut_points)
+
+    @mcp.tool()
+    def cuts_apply(project: str, cut_points: list[float], save_config: bool = True) -> dict[str, Any]:
+        """Apply cut points to the project config (explicit action). Writes config outside the repo when save_config=true."""
+        return api.cuts_apply(project=project, cut_points=cut_points, save_config=save_config)
+
+    @mcp.tool()
+    def cuts_preview(project: str, cut_points: list[float] | None = None, save_config: bool = False) -> dict[str, Any]:
+        """One-step explicit iteration: re-plan from current config and render a preview (uses project render config/fresh timeline). Optionally set cut points; persists to config only when save_config=true (explicit)."""
+        return api.cuts_preview(project=project, cut_points=cut_points, save_config=save_config)
+
+    @mcp.tool()
     def render_video(project: str | None = None, timeline: str | None = None, manifest: str | None = None, output: str | None = None, soundtrack: str | None = None, preview: bool = True, dry_run: bool = False, print_filter: bool = False, allow_unmapped: bool = False, no_plan: bool = False, no_probe: bool = False, strict_duration: bool = False) -> dict[str, Any]:
-        """Render a resolved timeline with FFmpeg. Defaults to preview=True. Use dry_run=True to inspect the command/filter without executing. Set preview=False and dry_run=False only for an intentional final render."""
+        """Render a resolved timeline with FFmpeg. Defaults to preview=True. Use dry_run=True to inspect the command/filter without executing. Set preview=False and dry_run=False only for an intentional final render. When project is provided and timeline is omitted, re-plans from current config (timing/cut-points/render/soundtrack/manifest) unless no_plan=true."""
         return api.render(project=project, timeline=timeline, manifest=manifest, output=output, soundtrack=soundtrack, preview=preview, dry_run=dry_run, print_filter=print_filter, allow_unmapped=allow_unmapped, no_plan=no_plan, no_probe=no_probe, strict_duration=strict_duration)
 
     return mcp

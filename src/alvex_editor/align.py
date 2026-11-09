@@ -8,12 +8,11 @@ import subprocess
 import tempfile
 from typing import Any
 
-import yaml
-
 from .ollama import OllamaClient, OllamaConfig, OllamaError, extract_json_object
 from .planner import discover_clips
 from .policy import ensure_not_inside_repo
 from .probe import find_ffmpeg, mkdtemp_portable, probe_media
+from .structured import dump_structured
 from .timeline import Segment, Timeline, load_timeline
 
 
@@ -151,8 +150,10 @@ def manifest_from_mappings(mappings: dict[str, Any], *, timeline: Timeline) -> d
 def write_manifest(manifest: dict[str, Any], path: str | Path) -> Path:
     path = Path(path)
     ensure_not_inside_repo(path, kind="manifest/edit plan")
+    if path.suffix.lower() != ".json":
+        path = path.with_suffix(".json")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    dump_structured(path, manifest, fmt="json")
     return path
 
 

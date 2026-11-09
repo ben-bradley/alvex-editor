@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import argparse
 import json
@@ -27,15 +27,41 @@ def _emit(args: argparse.Namespace, result: dict, human_lines: list[str] | None 
 def cmd_status(args: argparse.Namespace) -> int:
     r = api.project_status(project=args.project)
     s = r.get("status") or {}
+    sm = s.get("sources_manifest")
+    sm_s = f" exists={sm.get('exists')}" if isinstance(sm, dict) else ""
+    sm_p = sm.get("path") if isinstance(sm, dict) else sm
     lines = [
         f"Project: {s.get('project')} ({s.get('config')})",
         f"Template: {s.get('template',{}).get('path')} exists={s.get('template',{}).get('exists')}",
         f"Soundtrack: {s.get('soundtrack',{}).get('path')} exists={s.get('soundtrack',{}).get('exists')}",
         f"Clips dir: {s.get('clips_dir',{}).get('path')} exists={s.get('clips_dir',{}).get('exists')} count={s.get('clips_count','?')}",
-        f"Timeline: {s.get('timeline_path')} " + (f"segments={s['timeline']['segments']} mapped={s['timeline']['mapped']} analysis={s['timeline'].get('analysis_method')}" if s.get('timeline') else "(none)"),
+        f"Timeline: {s.get('timeline_path')} " + (f"segments={s['timeline']['segments']} mapped={s['timeline']['mapped']} analysis={s['timeline'].get('analysis_method')} soundtrack={s['timeline'].get('soundtrack')}" if s.get('timeline') else "(none)"),
         f"Analysis cache: {s.get('analysis_path')} " + (f"method={s['analysis_cache'].get('method')} beats={s['analysis_cache'].get('beats')} cuts={s['analysis_cache'].get('cut_points')}" if s.get('analysis_cache') else "(none)"),
+        f"Sources manifest: {sm_p}{sm_s}",
         f"ffmpeg={s.get('ffmpeg')} ffprobe={s.get('ffprobe')}",
     ]
+    ff = s.get("ffmpeg_info") or {}
+    for h in (ff.get("hints") or [])[:2]:
+        lines.append(f"! hint: {h}")
+    return _emit(args, r, lines)
+
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    r = api.doctor(project=getattr(args, "project", None))
+    ff = r.get("ffmpeg") or {}
+    lines = [
+        f"ffmpeg: {ff.get('ffmpeg')} (found={ff.get('ffmpeg_found')}, PATH={ff.get('path_ffmpeg')})",
+        f"ffprobe: {ff.get('ffprobe')} (found={ff.get('ffprobe_found')}, PATH={ff.get('path_ffprobe')})",
+        f"python={r.get('python')} platform={r.get('platform')}",
+    ]
+    for issue in (r.get("issues") or []):
+        lines.append(f"! issue: {issue}")
+    for note in (r.get("notes") or []):
+        lines.append(f"  note: {note}")
+    for h in (r.get("hints") or []):
+        lines.append(f"  hint: {h}")
+    if (r.get("issues") or []) and not getattr(args, "json", False):
+        pass
     return _emit(args, r, lines)
 
 
@@ -283,17 +309,97 @@ def cmd_soundtracks(args: argparse.Namespace) -> int:
     return _emit(args, r, lines)
 
 
+
+
+def _parse_cut_points_arg(s: str | None):
+    if not s:
+        return None
+    return [float(x.strip()) for x in str(s).split(',') if x.strip()]
+
+
+def cmd_cuts(args: argparse.Namespace) -> int:
+    action = getattr(args, 'cuts_action', 'show')
+    if action == 'show':
+        r = api.cuts_show(project=args.project, cut_points=_parse_cut_points_arg(getattr(args, 'cut_points', None)))
+        if not r.get('ok'):
+            return _emit(args, r)
+        lines = [f"Project: {r.get('project')}", f"Active slots: {r.get('active_slots')}/{r.get('slots_total')} (skipped={','.join(r.get('skipped_slots') or []) or '-'})", "Boundaries:"]
+        for b in r.get('boundaries') or []:
+            end = b.get('end')
+            dur = b.get('duration')
+            end_s = f"{end:g}s" if isinstance(end, (int,float)) else '?'
+            dur_s = f"{dur:g}s" if isinstance(dur, (int,float)) else '?'
+            lines.append(f"  {b['boundary']:>2}. {b['slot_id']} ({b['slot_name']}): 0-based end={end_s} dur={dur_s}  [{b['label']}]")
+        for w in r.get('warnings') or []:
+            lines.append(f"! {w}")
+        return _emit(args, r, lines)
+    if action == 'suggest':
+        r = api.cuts_suggest(project=args.project, count=getattr(args, 'count', None), use_second_of_pair=bool(getattr(args, 'second_of_pair', False)), near=getattr(args, 'near', None))
+        if not r.get('ok'):
+            return _emit(args, r)
+        lines = [f"Suggested {len(r.get('suggested_cut_points') or [])} cut points (template-aware active slots={r.get('active_slots')}, onsets={r.get('onsets_available')}, second_of_pair={r.get('used_second_of_pair')})"]
+        lines.append(f"  cut_points: {r.get('suggested_cut_points')}")
+        if r.get('near_pair_suggestion'):
+            p = r['near_pair_suggestion']
+            lines.append(f"  near pair: first={p['first']}s second={p['second']}s gap={p['gap']}s")
+        for b in (r.get('labeled_preview') or [])[:12]:
+            end = b.get('end'); end_s = f"{end:g}s" if isinstance(end,(int,float)) else '?'
+            lines.append(f"  - {b['slot_id']}: end={end_s} ({b['label']})")
+        lines.append("Not applied. Review, then use `cuts apply --cut-points ...` and/or `cuts preview --cut-points ... [--save-config]` (explicit).")
+        return _emit(args, r, lines)
+    if action == 'nudge':
+        r = api.cuts_nudge(project=args.project, near=args.near, to=args.to, cut_points=_parse_cut_points_arg(getattr(args, 'cut_points', None)))
+        if not r.get('ok'):
+            return _emit(args, r)
+        lines = [f"Nudge suggestion (not applied): boundary {r.get('boundary')} near {r.get('near')}s: {r.get('old')}s -> {r.get('new')}s ({r.get('reason')})"]
+        if r.get('suggestion'):
+            p = r['suggestion']; lines.append(f"  pair: first={p['first']}s second={p['second']}s gap={p['gap']}s")
+        lines.append(f"  new cut_points: {r.get('cut_points')}")
+        lines.append("Review required. Apply with `cuts apply --cut-points ...` or preview with `cuts preview --cut-points ... [--save-config]`.")
+        return _emit(args, r, lines)
+    if action == 'apply':
+        pts = _parse_cut_points_arg(getattr(args, 'cut_points', None))
+        if not pts:
+            return _emit(args, {'ok': False, 'command': 'cuts_apply', 'error': '--cut-points is required'})
+        r = api.cuts_apply(project=args.project, cut_points=pts, save_config=not getattr(args, 'no_save', False))
+        if not r.get('ok'):
+            return _emit(args, r)
+        lines = [f"Applied cut points to config: {r.get('config_path')} saved={r.get('saved_config')}", f"  cut_points: {r.get('cut_points')}"]
+        for b in (r.get('labeled') or [])[:12]:
+            end = b.get('end'); end_s = f"{end:g}s" if isinstance(end,(int,float)) else '?'
+            lines.append(f"  - {b['slot_id']}: end={end_s}")
+        lines.append("Re-plan/render preview when ready.")
+        return _emit(args, r, lines)
+    if action == 'preview':
+        pts = _parse_cut_points_arg(getattr(args, 'cut_points', None))
+        r = api.cuts_preview(project=args.project, cut_points=pts, save_config=bool(getattr(args, 'save_config', False)))
+        if not r.get('ok'):
+            return _emit(args, r)
+        lines = [f"Preview render complete (explicit): {r.get('output')}", f"  saved_config={r.get('saved_config')} replanned={r.get('replanned', True)}"]
+        if pts:
+            lines.append(f"  cut_points: {pts}")
+        if r.get('warnings'):
+            for w in r['warnings'][:5]:
+                lines.append(f"! {w}")
+        return _emit(args, r, lines)
+    return _emit(args, {'ok': False, 'command': 'cuts', 'error': f'Unknown cuts action: {action}'})
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="alvex-editor", description="Alvex Editor - template-driven video production")
     sub = p.add_subparsers(dest="command", required=True)
 
     st = sub.add_parser("status", help="Show project status, artifacts, and tool availability")
-    st.add_argument("--project", "-p", required=True, help="Path to project config (alvex.yaml)")
+    st.add_argument("--project", "-p", required=True, help="Path to project config (alvex.json)")
     st.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     st.set_defaults(func=cmd_status)
 
+    dr = sub.add_parser("doctor", help="Check ffmpeg/ffprobe resolution, environment, and optional project readiness")
+    dr.add_argument("--project", "-p", help="Path to project config (alvex.json)")
+    dr.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    dr.set_defaults(func=cmd_doctor)
+
     plan = sub.add_parser("plan", help="Build a timeline plan from a project config and template")
-    plan.add_argument("--project", "-p", required=True, help="Path to project config (alvex.yaml)")
+    plan.add_argument("--project", "-p", required=True, help="Path to project config (alvex.json)")
     plan.add_argument("--output", "-o", help="Output timeline JSON path (default: timeline_path from config)")
     plan.add_argument("--map-clips", action="store_true", help="Best-effort map files from clips_dir to slots by name/hint")
     plan.add_argument("--no-analyze", action="store_true", help="Skip soundtrack analysis; resolve timing from target durations only")
@@ -301,7 +407,7 @@ def build_parser() -> argparse.ArgumentParser:
     plan.set_defaults(func=cmd_plan)
 
     analyze = sub.add_parser("analyze", help="Analyze soundtrack to produce beat/cut-point grid (analysis.json)")
-    analyze.add_argument("--project", "-p", required=True, help="Path to project config (alvex.yaml)")
+    analyze.add_argument("--project", "-p", required=True, help="Path to project config (alvex.json)")
     analyze.add_argument("--output", "-o", help="Output analysis JSON path (default: analysis_path from config)")
     analyze.add_argument("--backend", choices=["auto", "onsets", "librosa", "library"], help="Analysis backend (default: auto; 'onsets' = ffmpeg+numpy, cached in library)")
     analyze.add_argument("--refresh", action="store_true", help="Ignore cached/library analysis and recompute")
@@ -338,12 +444,17 @@ def build_parser() -> argparse.ArgumentParser:
     snds.add_argument("--workspace", "-w", help="Workspace root")
     snds.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     sndsub = snds.add_subparsers(dest="soundtracks_action")
-    sndsub.add_parser("list", help="List registered soundtracks")
+    sndlist = sndsub.add_parser("list", help="List registered soundtracks")
+    sndlist.add_argument("--workspace", "-w", help="Workspace root")
+    sndlist.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    sndlist.set_defaults(func=cmd_soundtracks)
     sndimp = sndsub.add_parser("import", help="Copy/import an MP3 into ~/Alvex/soundtracks/<id>/ and register it")
     sndimp.add_argument("source", help="Path to MP3 file")
     sndimp.add_argument("--track-id", dest="track_id", help="Registry id/slug")
     sndimp.add_argument("--title", help="Display title")
     sndimp.add_argument("--aliases", help="Comma-separated aliases")
+    sndimp.add_argument("--workspace", "-w", help="Workspace root")
+    sndimp.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     sndimp.set_defaults(func=cmd_soundtracks)
     sndcuts = sndsub.add_parser("set-cuts", help="Save curated, human-confirmed cut points for a registered soundtrack (map once, reuse)")
     sndcuts.add_argument("soundtrack", help="Soundtrack registry id/alias/path")
@@ -351,13 +462,15 @@ def build_parser() -> argparse.ArgumentParser:
     sndcuts.add_argument("--bpm", type=float, help="BPM")
     sndcuts.add_argument("--offset", type=float, help="Beat offset seconds")
     sndcuts.add_argument("--note", action="append", help="Provenance note (repeatable)")
+    sndcuts.add_argument("--workspace", "-w", help="Workspace root")
+    sndcuts.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     sndcuts.set_defaults(func=cmd_soundtracks)
     snds.set_defaults(func=cmd_soundtracks)
 
     render = sub.add_parser("render", help="Render a resolved timeline to video (FFmpeg)")
-    render.add_argument("--project", "-p", help="Path to project config (alvex.yaml)")
+    render.add_argument("--project", "-p", help="Path to project config (alvex.json)")
     render.add_argument("--timeline", "-t", help="Path to timeline JSON (overrides project's timeline_path)")
-    render.add_argument("--manifest", "-m", help="Source manifest mapping slot_id -> media path (YAML/JSON; default: config sources_manifest)")
+    render.add_argument("--manifest", "-m", help="Source manifest mapping slot_id -> media path (JSON; default: config sources_manifest)")
     render.add_argument("--output", "-o", help="Output video path")
     render.add_argument("--soundtrack", help="Override soundtrack audio path")
     render.add_argument("--dry-run", action="store_true", help="Print the FFmpeg command/script without executing")
@@ -371,21 +484,21 @@ def build_parser() -> argparse.ArgumentParser:
     render.set_defaults(func=cmd_render)
 
     align = sub.add_parser("align", help="Suggest clip-to-slot mappings via Ollama (writes a manifest for human review)")
-    align.add_argument("--project", "-p", help="Path to project config (alvex.yaml)")
+    align.add_argument("--project", "-p", help="Path to project config (alvex.json)")
     align.add_argument("--timeline", "-t", help="Path to timeline JSON")
     align.add_argument("--clips", help="Directory containing source clips")
     align.add_argument("--host", help="Ollama host/base URL (e.g., http://192.168.11.136:11434)")
     align.add_argument("--model", help="Ollama model for mapping suggestions (text/tools)")
     align.add_argument("--vision-model", help="Ollama vision model for clip labeling (e.g., qwen3-vl:latest)")
     align.add_argument("--vision", action="store_true", help="Label clips by extracting a frame and using the vision model")
-    align.add_argument("--output", "-o", help="Suggested manifest path (default: sources.suggested.yaml)")
-    align.add_argument("--manifest", "-m", help="Target manifest path for --apply (default: config sources_manifest or sources.yaml)")
+    align.add_argument("--output", "-o", help="Suggested manifest path (default: sources.suggested.json)")
+    align.add_argument("--manifest", "-m", help="Target manifest path for --apply (default: config sources_manifest or sources.json)")
     align.add_argument("--apply", action="store_true", help="Apply suggestion to the target manifest (explicit human confirmation)")
     align.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     align.set_defaults(func=cmd_align)
 
     select = sub.add_parser("select", help="Suggest in-points (segment selection) for mapped clips via heuristics/vision (human-confirmed)")
-    select.add_argument("--project", "-p", help="Path to project config (alvex.yaml)")
+    select.add_argument("--project", "-p", help="Path to project config (alvex.json)")
     select.add_argument("--timeline", "-t", help="Path to timeline JSON")
     select.add_argument("--manifest", "-m", help="Source manifest (slot_id -> clip path; default: config sources_manifest)")
     select.add_argument("--host", help="Ollama host/base URL (e.g., http://192.168.11.136:11434)")
@@ -394,13 +507,51 @@ def build_parser() -> argparse.ArgumentParser:
     select.add_argument("--vision", action="store_true", help="Use vision model to rank candidate windows (requires ffmpeg; slower)")
     select.add_argument("--candidates", type=int, default=5, help="Candidate windows per segment (default: 5)")
     select.add_argument("--slots", help="Comma-separated slot_ids to process (default: all mapped)")
-    select.add_argument("--output", "-o", help="Suggested manifest path (default: sources.selected.suggested.yaml)")
+    select.add_argument("--output", "-o", help="Suggested manifest path (default: sources.selected.suggested.json)")
     select.add_argument("--apply", action="store_true", help="Apply in-points to the target manifest (explicit human confirmation)")
     select.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     select.set_defaults(func=cmd_select)
 
+
+    cuts = sub.add_parser('cuts', help='Author/review cut points (slot-labeled, nudge/2nd-of-pair suggestions, apply/preview). Suggestions are confirm-gated.')
+    cuts.add_argument('--json', action='store_true', help='Output machine-readable JSON')
+    cutsub = cuts.add_subparsers(dest='cuts_action')
+    cshow = cutsub.add_parser('show', help='Show slot-labeled cut points/boundaries for the project')
+    cshow.add_argument('--project','-p', required=True, help='Path to project config (alvex.json)')
+    cshow.add_argument('--cut-points', dest='cut_points', help='Override cut points (comma-separated seconds)')
+    cshow.add_argument('--json', action='store_true', help='Output machine-readable JSON')
+    cshow.set_defaults(func=cmd_cuts)
+    csug = cutsub.add_parser('suggest', help='Suggest cut points from cached onsets (template-aware). Not applied.')
+    csug.add_argument('--project','-p', required=True, help='Path to project config')
+    csug.add_argument('--count', type=int, help='Number of cut points (default: active template slots)')
+    csug.add_argument('--second-of-pair', action='store_true', help='Snap suggestions to the 2nd onset in detected pairs (confirm-gated suggestion)')
+    csug.add_argument('--near', type=float, help='Report a 2nd-of-pair suggestion near this time')
+    csug.add_argument('--json', action='store_true', help='Output machine-readable JSON')
+    csug.set_defaults(func=cmd_cuts)
+    cn = cutsub.add_parser('nudge', help='Suggest nudging the cut point nearest a time (e.g. to 2nd-of-pair). Not applied.')
+    cn.add_argument('--project','-p', required=True, help='Path to project config')
+    cn.add_argument('--near', type=float, required=True, help='Target time (seconds) near the boundary to nudge')
+    cn.add_argument('--to', required=True, help='New value: seconds, or "second-of-pair"/"nearest-onset"')
+    cn.add_argument('--cut-points', dest='cut_points', help='Base cut points (comma-separated); default from project')
+    cn.add_argument('--json', action='store_true', help='Output machine-readable JSON')
+    cn.set_defaults(func=cmd_cuts)
+    ca = cutsub.add_parser('apply', help='Apply cut points to project config (explicit). Saves config by default.')
+    ca.add_argument('--project','-p', required=True, help='Path to project config')
+    ca.add_argument('--cut-points', dest='cut_points', required=True, help='Comma-separated cut point seconds (segment-end boundaries)')
+    ca.add_argument('--no-save', action='store_true', help='Do not write config (report only)')
+    ca.add_argument('--json', action='store_true', help='Output machine-readable JSON')
+    ca.set_defaults(func=cmd_cuts)
+    cpv = cutsub.add_parser('preview', help='One-step explicit iteration: re-plan + render preview (optionally set/save cut points). Uses project render config.')
+    cpv.add_argument('--project','-p', required=True, help='Path to project config')
+    cpv.add_argument('--cut-points', dest='cut_points', help='Optional cut points to use (comma-separated)')
+    cpv.add_argument('--save-config', action='store_true', help='Persist provided cut points to project config (explicit)')
+    cpv.add_argument('--json', action='store_true', help='Output machine-readable JSON')
+    cpv.set_defaults(func=cmd_cuts)
+    cuts.set_defaults(func=cmd_cuts)
+
+
     tmpl = sub.add_parser("template", help="Inspect/parse a project's template")
-    tmpl.add_argument("--project", "-p", required=True, help="Path to project config (alvex.yaml)")
+    tmpl.add_argument("--project", "-p", required=True, help="Path to project config (alvex.json)")
     tmpl.add_argument("--json", action="store_true", help="Output parsed template as JSON (template data)")
     tmpl.add_argument("--emit-json", action="store_true", dest="emit_json", help=argparse.SUPPRESS)
     tmpl.set_defaults(func=cmd_template)
@@ -423,3 +574,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

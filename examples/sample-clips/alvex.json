@@ -1,0 +1,41 @@
+{
+  "name": "sample-clips-exterior",
+  "template": "../../templates/exterior-showcase.md",
+  "clips_dir": "/home/lappy/Videos/sample-clips",
+  "soundtrack": "/home/lappy/Videos/sample-clips/bensound-acousticbreeze.mp3",
+  "sources_manifest": "~/alvex-editor-examples/sample-clips/output/sources.yaml",
+  "output_dir": "~/alvex-editor-examples/sample-clips/output",
+  "timeline_path": "~/alvex-editor-examples/sample-clips/output/timeline.json",
+  "analysis_path": "~/alvex-editor-examples/sample-clips/output/analysis.json",
+  "analysis": {
+    "cut_points": [
+      10.82,
+      19.3,
+      28.82,
+      38.31,
+      47.83,
+      57.31,
+      66.85,
+      76.32,
+      85.84,
+      100.68
+    ]
+  },
+  "ollama": {
+    "host": "http://192.168.11.136:11434",
+    "model": "qwen3-vl:latest",
+    "timeout": 240
+  },
+  "render": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "crf": 20,
+    "preset": "medium",
+    "fontfile": "/usr/share/fonts/truetype/ubuntu/Ubuntu-M.ttf",
+    "probe": true
+  },
+  "variables": {
+    "address": "123 Main St\nLittle Rock, Arkansas"
+  }
+}

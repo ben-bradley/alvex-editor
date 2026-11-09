@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+from .structured import find_project_config, load_structured
+from .validation import merge_preset, validate_config
 
 
 @dataclass
@@ -27,6 +28,8 @@ class ProjectConfig:
     ollama: dict[str, Any] = field(default_factory=dict)
     name: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    segment_overrides: dict[str, Any] = field(default_factory=dict)
 
     def resolve(self, value: str | None) -> Path | None:
         if value is None:
@@ -76,23 +79,63 @@ class ProjectConfig:
 REQUIRED_FIELDS = {"template"}
 
 
-def load_config(path: str | Path) -> ProjectConfig:
-    config_path = Path(path).expanduser().resolve()
+def _load_preset(data: dict[str, Any], *, project_dir: Path) -> dict[str, Any] | None:
+    ref = data.get("preset") or data.get("style_preset")
+    if not ref or not isinstance(ref, str):
+        return None
+    # project-local preset file
+    for base in [project_dir, project_dir / "presets"]:
+        name = ref if ref.endswith(".json") else f"{ref}.json"
+        p = (base / name)
+        if p.exists():
+            d = load_structured(p)
+            return d if isinstance(d, dict) else None
+    # workspace presets
+    try:
+        from .workspace import load_workspace
+        ws = load_workspace(start=project_dir)
+        p = (ws.root / "presets" / (ref if ref.endswith(".json") else f"{ref}.json"))
+        if p.exists():
+            d = load_structured(p)
+            return d if isinstance(d, dict) else None
+    except Exception:
+        pass
+    # inline presets map
+    presets = data.get("presets")
+    if isinstance(presets, dict) and isinstance(presets.get(ref), dict):
+        return presets[ref]
+    return None
+
+
+def load_config(path: str | Path, *, validate: bool = True) -> ProjectConfig:
+    config_path = find_project_config(path)
+    config_path = Path(config_path).expanduser().resolve()
     if not config_path.exists():
-        raise FileNotFoundError(f"Project config not found: {config_path}")
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    if not isinstance(data, dict):
-        raise ValueError(f"Project config must be a YAML mapping: {config_path}")
+        raise FileNotFoundError(f"Project config not found: {config_path} (expected alvex.json)")
+    raw_data = load_structured(config_path) or {}
+    if not isinstance(raw_data, dict):
+        raise ValueError(f"Project config must be a JSON object: {config_path}")
+    project_dir = config_path.parent
+    preset = _load_preset(raw_data, project_dir=project_dir)
+    data = merge_preset(raw_data, preset)
+    validation_warnings: list[str] = []
+    if validate:
+        vr = validate_config(data)
+        if not vr.ok:
+            raise ValueError("Invalid project config: " + "; ".join(vr.errors))
+        validation_warnings = vr.warnings
     missing = REQUIRED_FIELDS - set(data)
     if missing:
         raise ValueError(f"Project config missing required field(s): {', '.join(sorted(missing))}")
-    project_dir = config_path.parent
     analysis = data.get("analysis") or {}
     # Convenience shorthands.
     if "soundtrack_bpm" in data and "bpm" not in analysis:
         analysis = {**analysis, "bpm": data["soundtrack_bpm"]}
     if "beat_offset" in data and "offset" not in analysis:
         analysis = {**analysis, "offset": data["beat_offset"]}
+    seg_ov = data.get("segment_overrides") or data.get("slot_overrides") or {}
+    if not isinstance(seg_ov, dict):
+        seg_ov = {}
     return ProjectConfig(
         config_path=config_path,
         project_dir=project_dir,
@@ -110,5 +153,7 @@ def load_config(path: str | Path) -> ProjectConfig:
         timing=data.get("timing") or {},
         ollama=data.get("ollama") or {},
         name=data.get("name"),
-        raw=data,
+        raw=raw_data,
+        warnings=validation_warnings,
+        segment_overrides=seg_ov,
     )

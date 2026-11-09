@@ -8,9 +8,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from .policy import ensure_not_inside_repo
+from .structured import dump_structured, load_structured
 from .workspace import Workspace, load_workspace
 
 # ---- template registry ----
@@ -35,9 +34,9 @@ def slugify(value: str) -> str:
     return value or "item"
 
 
-def _read_yaml(path: Path) -> dict[str, Any]:
+def _read_structured(path: Path) -> dict[str, Any]:
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = load_structured(path) or {}
     except Exception:
         return {}
     return data if isinstance(data, dict) else {}
@@ -82,9 +81,9 @@ def list_templates(workspace: Workspace | None = None) -> list[TemplateEntry]:
             add(p, "workspace")
         for p in sorted(ws.templates_dir.glob("*.markdown")):
             add(p, "workspace")
-        idx = ws.templates_dir / "registry.yaml"
+        idx = ws.templates_dir / "registry.json"
         if idx.exists():
-            data = _read_yaml(idx)
+            data = _read_structured(idx)
             for tid, meta in (data.get("templates") or {}).items():
                 if not isinstance(meta, dict):
                     continue
@@ -172,14 +171,14 @@ class SoundtrackEntry:
 
 def soundtracks_index_path(workspace: Workspace | None = None) -> Path:
     ws = workspace or load_workspace()
-    return ws.soundtracks_dir / "registry.yaml"
+    return ws.soundtracks_dir / "registry.json"
 
 
 def _load_soundtracks_index(ws: Workspace) -> dict[str, Any]:
     p = soundtracks_index_path(ws)
     if not p.exists():
         return {"version": 1, "soundtracks": {}}
-    data = _read_yaml(p)
+    data = _read_structured(p)
     if "soundtracks" not in data or not isinstance(data.get("soundtracks"), dict):
         data = {"version": data.get("version", 1), "soundtracks": {}}
     return data
@@ -188,8 +187,8 @@ def _load_soundtracks_index(ws: Workspace) -> dict[str, Any]:
 def _save_soundtracks_index(ws: Workspace, data: dict[str, Any]) -> Path:
     ensure_not_inside_repo(ws.soundtracks_dir, kind="soundtrack registry")
     ws.soundtracks_dir.mkdir(parents=True, exist_ok=True)
-    p = soundtracks_index_path(ws)
-    p.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    p = ws.soundtracks_dir / "registry.json"
+    dump_structured(p, data, fmt="json")
     return p
 
 
@@ -206,14 +205,11 @@ def list_soundtracks(workspace: Workspace | None = None) -> list[SoundtrackEntry
         if p and not p.is_absolute():
             p = (ws.soundtracks_dir / p).resolve()
         raw_cp = meta.get("cut_points_path") or meta.get("cut_points")
-        cp = Path(str(raw_cp)).expanduser() if raw_cp and isinstance(raw_cp, str) and ("/" in str(raw_cp) or str(raw_cp).endswith(('.yaml','.yml','.json'))) else None
+        cp = Path(str(raw_cp)).expanduser() if raw_cp and isinstance(raw_cp, str) and ("/" in str(raw_cp) or str(raw_cp).endswith('.json')) else None
         if cp and not cp.is_absolute():
             cp = (ws.soundtracks_dir / cp).resolve()
         if not cp:
-            cp = ws.soundtracks_dir / sid_s / "cut-points.yaml"
-            if not cp.exists():
-                cpj = ws.soundtracks_dir / sid_s / "cut-points.json"
-                cp = cpj if cpj.exists() else (ws.soundtracks_dir / sid_s / "cut-points.yaml")
+            cp = ws.soundtracks_dir / sid_s / "cut-points.json"
         out.append(SoundtrackEntry(
             id=sid_s,
             title=meta.get("title") or meta.get("name"),
@@ -286,8 +282,8 @@ def import_soundtrack(source: str | Path, *, workspace: Workspace | None = None,
     })
     tracks[sid] = meta
     _save_soundtracks_index(ws, data)
-    cp = dest_dir / "cut-points.yaml"
-    return SoundtrackEntry(id=sid, title=meta.get("title"), path=dest, aliases=list(meta.get("aliases") or []), cut_points_path=cp if cp.exists() else (dest_dir / "cut-points.yaml"), sha256_16=h)
+    cp = dest_dir / "cut-points.json"
+    return SoundtrackEntry(id=sid, title=meta.get("title"), path=dest, aliases=list(meta.get("aliases") or []), cut_points_path=cp if cp.exists() else cp, sha256_16=h)
 
 
 def load_curated_cut_points(entry: SoundtrackEntry | str | Path, *, workspace: Workspace | None = None) -> dict[str, Any] | None:
@@ -300,17 +296,11 @@ def load_curated_cut_points(entry: SoundtrackEntry | str | Path, *, workspace: W
     candidates = []
     if entry.cut_points_path:
         candidates.append(entry.cut_points_path)
-    candidates.append(ws.soundtracks_dir / entry.id / "cut-points.yaml")
-    candidates.append(ws.soundtracks_dir / entry.id / "cut-points.yml")
     candidates.append(ws.soundtracks_dir / entry.id / "cut-points.json")
     for p in candidates:
         if p and Path(p).exists():
             try:
-                text = Path(p).read_text(encoding="utf-8")
-                if Path(p).suffix.lower() == ".json":
-                    data = json.loads(text)
-                else:
-                    data = yaml.safe_load(text) or {}
+                data = load_structured(p)
                 if isinstance(data, dict):
                     data.setdefault("source", str(entry.path) if entry.path else None)
                     data.setdefault("soundtrack_id", entry.id)
@@ -354,8 +344,8 @@ def save_curated_cut_points(entry: SoundtrackEntry | str | Path, *, cut_points: 
         ref["beat_times"] = [round(float(x), 4) for x in beat_times]
     if notes:
         ref["notes"] = list(notes)
-    out = dest_dir / "cut-points.yaml"
-    out.write_text(yaml.safe_dump(ref, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    out = dest_dir / "cut-points.json"
+    dump_structured(out, ref, fmt="json")
     # update index pointer/hash
     data = _load_soundtracks_index(ws)
     tracks = data.setdefault("soundtracks", {})

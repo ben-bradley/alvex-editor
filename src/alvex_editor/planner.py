@@ -138,6 +138,43 @@ def _apply_timing_overrides(segments: list[Segment], timing: dict[str, Any] | No
                 break
 
 
+
+
+def _apply_segment_overrides(segments: list[Segment], overrides: dict[str, Any] | None) -> None:
+    if not overrides or not isinstance(overrides, dict):
+        return
+    by_id = {s.slot_id: s for s in segments}
+    for slot_id, ov in overrides.items():
+        if not isinstance(ov, dict):
+            continue
+        seg = by_id.get(str(slot_id))
+        if not seg:
+            continue
+        src = ov.get("source") if isinstance(ov.get("source"), dict) else {}
+        if "path" in ov and ov.get("path") is not None:
+            seg.source.path = str(ov.get("path"))
+            seg.source.status = "mapped"
+        if "in_point" in ov and ov.get("in_point") is not None:
+            try: seg.source.in_point = float(ov["in_point"])
+            except Exception: pass
+        if "out_point" in ov and ov.get("out_point") is not None:
+            try: seg.source.out_point = float(ov["out_point"])
+            except Exception: pass
+        for k in ("in_point", "out_point", "path"):
+            if k in src and src.get(k) is not None:
+                if k == "path":
+                    seg.source.path = str(src["path"]); seg.source.status = "mapped"
+                else:
+                    try: setattr(seg.source, k, float(src[k]))
+                    except Exception: pass
+        if "optional" in ov and isinstance(ov["optional"], bool):
+            seg.optional = ov["optional"]
+        for k in ("target_duration", "min_duration", "max_duration"):
+            if k in ov and ov[k] is not None:
+                try: setattr(seg, k, float(ov[k]))
+                except Exception: pass
+
+
 def build_plan(
     config: ProjectConfig,
     *,
@@ -181,6 +218,7 @@ def build_plan(
             seg.notes.append(f"clips_dir missing: {clips_dir}")
 
     _apply_timing_overrides(segments, getattr(config, "timing", None))
+    _apply_segment_overrides(segments, getattr(config, "segment_overrides", None))
 
     analysis = analyze_soundtrack(config, segments, write_cache=write_analysis_cache) if analyze else None
     timeline = Timeline(

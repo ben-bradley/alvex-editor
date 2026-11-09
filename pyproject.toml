@@ -8,9 +8,7 @@ version = "0.1.0"
 description = "Alvex Editor - template-driven video editing and production"
 readme = "instructions.md"
 requires-python = ">=3.11"
-dependencies = [
-  "PyYAML>=6.0",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [

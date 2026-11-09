@@ -6,15 +6,17 @@ from pathlib import Path
 import re
 from typing import Any
 
-import yaml
-
 from .align import align_project, write_manifest
-from .audio import analyze_soundtrack
+from .structured import dump_structured, load_structured
+from .audio import analyze_soundtrack, load_analysis
+from . import cutpoints as _cutpoints
 from .config import ProjectConfig, load_config
 from .ollama import OllamaConfig, OllamaError
 from .planner import build_plan, discover_clips
 from .policy import ensure_not_inside_repo
 from .probe import find_ffmpeg, find_ffprobe, probe_media
+import shutil as _shutil
+import sys as _sys
 from .registry import (
     import_soundtrack,
     list_soundtracks,
@@ -58,8 +60,135 @@ def _resolve_config(project: str | Path | None) -> ProjectConfig | None:
     return load_config(project) if project else None
 
 
+def _ffmpeg_resolution() -> dict[str, Any]:
+    ffmpeg = find_ffmpeg()
+    ffprobe = find_ffprobe()
+    hints: list[str] = []
+    if not ffmpeg or not ffprobe:
+        hints.append("Install ffmpeg and ensure it is on PATH, or set FFMPEG/FFPROBE (or ALVEX_FFMPEG/ALVEX_FFPROBE) to the full executable paths.")
+        if _sys.platform.startswith(("win", "cygwin")):
+            hints.append("On Windows, Alvex also checks common WinGet install locations (e.g. Gyan.FFmpeg). If installed but not found, set FFMPEG/FFPROBE explicitly.")
+    return {
+        "ffmpeg": ffmpeg,
+        "ffprobe": ffprobe,
+        "ffmpeg_found": bool(ffmpeg),
+        "ffprobe_found": bool(ffprobe),
+        "path_ffmpeg": _shutil.which("ffmpeg"),
+        "path_ffprobe": _shutil.which("ffprobe"),
+        "hints": hints,
+    }
+
+
+def doctor(*, project: str | Path | None = None) -> dict[str, Any]:
+    ff = _ffmpeg_resolution()
+    res: dict[str, Any] = {"ffmpeg": ff, "python": _sys.version.split()[0], "platform": _sys.platform}
+    issues: list[str] = []
+    notes: list[str] = []
+    if not ff["ffmpeg_found"]:
+        issues.append("ffmpeg not found")
+    if not ff["ffprobe_found"]:
+        issues.append("ffprobe not found")
+    if project:
+        try:
+            config = load_config(project)
+            st = project_status(project=project)
+            status = (st.get("status") or {}) if st.get("ok") else {}
+            res["project"] = status
+            tpl = status.get("template") or {}
+            snd = status.get("soundtrack") or {}
+            clips = status.get("clips_dir") or {}
+            if tpl.get("path") and not tpl.get("exists"):
+                issues.append(f"template missing: {tpl.get('path')}")
+            if snd.get("path") and not snd.get("exists"):
+                issues.append(f"soundtrack missing: {snd.get('path')}")
+            if clips.get("path") and not clips.get("exists"):
+                issues.append(f"clips_dir missing: {clips.get('path')}")
+            sm = status.get("sources_manifest")
+            sm_path = sm.get("path") if isinstance(sm, dict) else sm
+            sm_exists = sm.get("exists") if isinstance(sm, dict) else (Path(sm_path).exists() if sm_path else False)
+            if sm_path and not sm_exists:
+                notes.append(f"sources manifest not found (optional until clips are mapped/aligned; timeline mappings may be used): {sm_path}")
+            tl = status.get("timeline") or {}
+            if tl and snd.get("path") and tl.get("soundtrack") and str(tl.get("soundtrack")) != str(snd.get("path")):
+                notes.append("timeline soundtrack differs from project config; re-plan to refresh.")
+            _ = config
+        except Exception as e:
+            issues.append(f"project check failed: {e}")
+    if notes:
+        res["notes"] = notes
+    res["ok_doctor"] = not any("ffmpeg" in i or "ffprobe" in i or "project check failed" in i for i in issues)
+    res["issues"] = issues
+    res["hints"] = ff.get("hints") or []
+    return ok("doctor", **res)
+
+
+def _merge_manifest_into_timeline(timeline: Any, config: ProjectConfig | None) -> list[str]:
+    """Apply sources manifest in/out points (and paths) onto a planned timeline. Preserves explicit trims."""
+    notes: list[str] = []
+    if not config:
+        return notes
+    mp = config.resolved_sources_manifest
+    if not mp or not mp.exists():
+        return notes
+    try:
+        manifest = load_manifest(mp)
+        apply_manifest(timeline, manifest, base_dir=mp.resolve().parent)
+        notes.append(f"merged sources manifest: {mp}")
+    except Exception as e:
+        notes.append(f"sources manifest merge skipped: {e}")
+    return notes
+
+
+def _project_brief_path(config: ProjectConfig) -> Path:
+    raw = (config.raw or {}).get("brief_path") or (config.raw or {}).get("brief")
+    if raw:
+        p = Path(str(raw)).expanduser()
+        return (config.project_dir / p).resolve() if not p.is_absolute() else p.resolve()
+    for name in ("project.brief.json", "brief.json"):
+        p = (config.project_dir / name)
+        if p.exists():
+            return p
+    return (config.project_dir / "project.brief.json").resolve()
+
+
+def _load_project_brief(config: ProjectConfig) -> dict[str, Any] | None:
+    for name in ("project.brief.json", "brief.json"):
+        p = config.project_dir / name
+        if p.exists():
+            try:
+                data = load_structured(p)
+                if isinstance(data, dict):
+                    data["_path"] = str(p)
+                    return data
+            except Exception:
+                return {"_path": str(p), "_error": "unreadable"}
+    raw = (config.raw or {}).get("brief_path") or (config.raw or {}).get("brief")
+    if raw:
+        p = Path(str(raw)).expanduser()
+        p = (config.project_dir / p).resolve() if not p.is_absolute() else p.resolve()
+        if p.exists():
+            try:
+                data = load_structured(p)
+                if isinstance(data, dict):
+                    data["_path"] = str(p)
+                    return data
+            except Exception:
+                return {"_path": str(p), "_error": "unreadable"}
+    return None
+
+
+def _write_project_brief(config: ProjectConfig, data: dict[str, Any]) -> Path:
+    p = _project_brief_path(config)
+    if p.suffix.lower() != ".json":
+        p = p.with_suffix(".json")
+    ensure_not_inside_repo(p, kind="project brief")
+    dump_structured(p, data, fmt="json")
+    return p
+
+
 def project_status(*, project: str | Path) -> dict[str, Any]:
     config = load_config(project)
+    ff = _ffmpeg_resolution()
     res: dict[str, Any] = {
         "project": config.name or config.project_dir.name,
         "config": str(config.config_path),
@@ -69,9 +198,10 @@ def project_status(*, project: str | Path) -> dict[str, Any]:
         "clips_dir": {"path": str(config.clips_path) if config.clips_path else None, "exists": bool(config.clips_path and config.clips_path.exists())},
         "analysis_path": str(config.resolved_analysis_path),
         "timeline_path": str(config.resolved_timeline_path),
-        "sources_manifest": str(config.resolved_sources_manifest) if config.resolved_sources_manifest else None,
-        "ffmpeg": find_ffmpeg(),
-        "ffprobe": find_ffprobe(),
+        "sources_manifest": {"path": str(config.resolved_sources_manifest), "exists": config.resolved_sources_manifest.exists()} if config.resolved_sources_manifest else None,
+        "ffmpeg": ff["ffmpeg"],
+        "ffprobe": ff["ffprobe"],
+        "ffmpeg_info": ff,
         "ollama": {"configured": bool(config.ollama), "host": (config.ollama or {}).get("host"), "model": (config.ollama or {}).get("model"), "vision_model": (config.ollama or {}).get("vision_model")},
     }
     if config.clips_path and config.clips_path.exists():
@@ -80,7 +210,7 @@ def project_status(*, project: str | Path) -> dict[str, Any]:
         try:
             tl = load_timeline(config.resolved_timeline_path)
             mapped = sum(1 for s in tl.segments if s.source.status == "mapped")
-            res["timeline"] = {"segments": len(tl.segments), "mapped": mapped, "unmapped": len(tl.segments) - mapped, "analysis_method": (tl.analysis or {}).get("method")}
+            res["timeline"] = {"segments": len(tl.segments), "mapped": mapped, "unmapped": len(tl.segments) - mapped, "analysis_method": (tl.analysis or {}).get("method"), "soundtrack": tl.soundtrack}
         except Exception as e:
             res["timeline_error"] = str(e)
     if config.resolved_analysis_path.exists():
@@ -89,6 +219,11 @@ def project_status(*, project: str | Path) -> dict[str, Any]:
             res["analysis_cache"] = {"method": data.get("method"), "beats": len(data.get("beat_times") or []), "cut_points": len(data.get("cut_points") or []), "duration": data.get("duration")}
         except Exception as e:
             res["analysis_cache_error"] = str(e)
+    brief = _load_project_brief(config)
+    if brief is not None:
+        res["brief"] = {"path": brief.get("_path"), "present": "_error" not in brief, "summary": {k: v for k, v in brief.items() if not str(k).startswith("_")}}
+    else:
+        res["brief"] = {"present": False, "path": str(_project_brief_path(config))}
     return ok("status", status=res)
 
 
@@ -127,12 +262,13 @@ def analyze(*, project: str | Path, output: str | Path | None = None, backend: s
 def plan(*, project: str | Path, output: str | Path | None = None, map_clips: bool = False, run_analyze: bool = True) -> dict[str, Any]:
     config = load_config(project)
     timeline = build_plan(config, map_clips=map_clips, analyze=run_analyze)
+    merge_notes = _merge_manifest_into_timeline(timeline, config)
     out = Path(output).expanduser().resolve() if output else config.resolved_timeline_path
     timeline.write(out)
     mapped = sum(1 for s in timeline.segments if s.source.status == "mapped")
     total = len(timeline.segments)
     resolved = sum(1 for s in timeline.segments if s.resolved_duration is not None)
-    return ok(
+    res = ok(
         "plan",
         output=str(out),
         template=str(config.template_path),
@@ -143,6 +279,9 @@ def plan(*, project: str | Path, output: str | Path | None = None, map_clips: bo
         analysis=timeline.analysis,
         timeline_path=str(out),
     )
+    if merge_notes:
+        res["manifest_merge"] = merge_notes
+    return res
 
 
 def _render_config(config: ProjectConfig | None, *, preview: bool = False, no_probe: bool = False, strict_duration: bool = False) -> RenderOptions:
@@ -172,22 +311,49 @@ def render(
     strict_duration: bool = False,
 ) -> dict[str, Any]:
     config = load_config(project) if project else None
-    if timeline:
+    timeline_explicit = timeline is not None
+    manifest_explicit = manifest is not None
+
+    # Resolve timeline. When using a project config without an explicit timeline, re-plan fresh by default
+    # so render/timing/cut-points/soundtrack/manifest changes in config are applied (avoids stale timelines).
+    if timeline_explicit:
         timeline_path = Path(timeline).expanduser().resolve()
+        tl = load_timeline(timeline_path)
+        replanned = False
     elif config:
         timeline_path = config.resolved_timeline_path
-        if not timeline_path.exists() and not no_plan:
-            tl = build_plan(config, map_clips=False)
+        if no_plan:
+            if not timeline_path.exists():
+                return fail("render", f"Timeline not found and --no-plan set: {timeline_path}")
+            tl = load_timeline(timeline_path)
+            replanned = False
+        else:
+            tl = build_plan(config, map_clips=False, analyze=True)
+            _merge_manifest_into_timeline(tl, config)
             timeline_path = tl.write(timeline_path)
+            replanned = True
     else:
         return fail("render", "Provide --project or --timeline")
 
     options = _render_config(config, preview=preview, no_probe=no_probe, strict_duration=strict_duration)
-    manifest_path = manifest
-    if not manifest_path and config:
-        manifest_path = config.raw.get("sources_manifest") or config.raw.get("manifest")
-    if manifest_path and config and not Path(str(manifest_path)).is_absolute():
-        manifest_path = str((config.project_dir / str(manifest_path)).resolve())
+
+    # Resolve manifest: explicit arg is strict; auto-resolved config manifest is optional.
+    manifest_path: Path | None = None
+    manifest_value = manifest
+    if not manifest_value and config:
+        manifest_value = config.raw.get("sources_manifest") or config.raw.get("manifest")
+    if manifest_value:
+        mp = Path(str(manifest_value)).expanduser()
+        if config and not mp.is_absolute():
+            mp = (config.project_dir / mp).resolve()
+        manifest_path = mp
+    if manifest_explicit and manifest_path and not manifest_path.exists():
+        return fail("render", f"Manifest not found: {manifest_path}")
+    if manifest_path and manifest_path.exists():
+        m = load_manifest(manifest_path)
+        apply_manifest(tl, m, base_dir=manifest_path.resolve().parent)
+    elif manifest_path and not manifest_explicit:
+        manifest_path = None  # auto-resolved but missing; timeline mappings/in-points may suffice
 
     if output:
         out_path = Path(output).expanduser().resolve()
@@ -196,10 +362,6 @@ def render(
     else:
         out_path = Path("output.mp4").resolve()
 
-    tl = load_timeline(timeline_path)
-    if manifest_path:
-        m = load_manifest(manifest_path)
-        apply_manifest(tl, m, base_dir=Path(str(manifest_path)).resolve().parent)
     plan = build_render_plan(
         tl,
         out_path,
@@ -211,12 +373,16 @@ def render(
     )
     base_res: dict[str, Any] = {
         "output": str(plan.output),
+        "timeline_path": str(timeline_path),
+        "replanned": replanned,
         "inputs": [str(p) for p in plan.inputs],
         "warnings": plan.warnings,
         "probe_count": len([k for k, v in (plan.probe or {}).items() if v.get("duration") is not None]),
         "filter_complex": plan.filter_complex,
         "script": plan.script,
         "ffmpeg_command": plan.command,
+        "manifest_applied": str(manifest_path) if manifest_path else None,
+        "project_render_config_applied": bool(config and isinstance((config.raw or {}).get("render"), dict) and (config.raw or {}).get("render")),
     }
     if dry_run or print_filter:
         return ok("render", dry_run=True, print_filter=bool(print_filter), **base_res)
@@ -293,8 +459,8 @@ def suggest_mapping(
         use_vision=vision,
     )
     base = config.project_dir if config else timeline_path.parent
-    suggested = Path(output).expanduser().resolve() if output else (base / "sources.suggested.yaml")
-    write_manifest(manifest_data, suggested)
+    suggested = Path(output).expanduser().resolve() if output else (base / "sources.suggested.json")
+    suggested = write_manifest(manifest_data, suggested)
     res: dict[str, Any] = {
         "suggested_manifest": str(suggested),
         "clips": len(clip_infos),
@@ -305,8 +471,8 @@ def suggest_mapping(
         "requires_confirmation": True,
     }
     if apply:
-        target = _resolve_manifest_target(config, manifest) or (base / "sources.yaml")
-        write_manifest(manifest_data, target)
+        target = _resolve_manifest_target(config, manifest) or (base / "sources.json")
+        target = write_manifest(manifest_data, target)
         res["applied"] = True
         res["applied_manifest"] = str(target)
         res["requires_confirmation"] = False
@@ -343,8 +509,8 @@ def suggest_inpoints(
         slots=slots,
     )
     base = config.project_dir if config else timeline_path.parent
-    suggested = Path(output).expanduser().resolve() if output else (base / "sources.selected.suggested.yaml")
-    write_manifest(manifest_data, suggested)
+    suggested = Path(output).expanduser().resolve() if output else (base / "sources.selected.suggested.json")
+    suggested = write_manifest(manifest_data, suggested)
     res: dict[str, Any] = {
         "suggested_manifest": str(suggested),
         "selections": selections,
@@ -352,8 +518,8 @@ def suggest_inpoints(
         "requires_confirmation": True,
     }
     if apply:
-        target = _resolve_manifest_target(config, manifest) or (base / "sources.yaml")
-        write_manifest(manifest_data, target)
+        target = _resolve_manifest_target(config, manifest) or (base / "sources.json")
+        target = write_manifest(manifest_data, target)
         res["applied"] = True
         res["applied_manifest"] = str(target)
         res["requires_confirmation"] = False
@@ -367,15 +533,13 @@ def apply_manifest_file(*, project: str | Path | None = None, suggested: str | P
         return fail("apply_manifest", f"Suggested manifest not found: {src}")
     data = load_manifest(src)
     # preserve non-source metadata if present
-    raw = None
     try:
-        import yaml
-        raw = yaml.safe_load(src.read_text(encoding="utf-8")) or {}
+        raw = load_structured(src) or {}
     except Exception:
         raw = {"sources": data}
-    tgt = Path(target).expanduser().resolve() if target else (_resolve_manifest_target(config, None) or ((config.project_dir if config else src.parent) / "sources.yaml"))
-    write_manifest(raw if isinstance(raw, dict) else {"sources": data}, tgt)
-    return ok("apply_manifest", suggested=str(src), applied_manifest=str(tgt), applied=True)
+    tgt = Path(target).expanduser().resolve() if target else (_resolve_manifest_target(config, None) or ((config.project_dir if config else src.parent) / "sources.json"))
+    written = write_manifest(raw if isinstance(raw, dict) else {"sources": data}, tgt)
+    return ok("apply_manifest", suggested=str(src), applied_manifest=str(written), applied=True)
 
 
 # ---- workspace / registries / project init ----
@@ -547,7 +711,7 @@ def init_project(
         "output_dir": str(out_dir),
         "analysis_path": str(out_dir / "analysis.json"),
         "timeline_path": str(out_dir / "timeline.json"),
-        "sources_manifest": str(out_dir / "sources.yaml"),
+        "sources_manifest": str(out_dir / "sources.json"),
         "variables": vars_out,
         "analysis": cfg_analysis,
         "ollama": dict(ollama or {}),
@@ -556,13 +720,35 @@ def init_project(
     }
     if snd_entry:
         config_data["soundtrack_id"] = snd_entry.id
-    cfg_path = proj_dir / "alvex.yaml"
-    cfg_path.write_text(yaml.safe_dump(config_data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    cfg_path = proj_dir / "alvex.json"
+    dump_structured(cfg_path, config_data, fmt="json")
+    # optional project brief for session resume (JSON everywhere)
+    from datetime import datetime, timezone
+    brief_path = proj_dir / "project.brief.json"
+    brief = {
+        "version": 1,
+        "project": config_data["name"],
+        "slug": slug,
+        "config": str(cfg_path),
+        "workspace": str(ws.root),
+        "template": {"ref": str(template), "resolved": str(template_path)},
+        "soundtrack": {"ref": str(soundtrack) if soundtrack else None, "resolved": str(snd_path) if snd_path else None, "id": (snd_entry.id if snd_entry else None), "curated_cut_points_applied": bool(curated_ref and curated_ref.get("cut_points"))},
+        "clips_dir": str(clips) if clips else None,
+        "variables": vars_out,
+        "render": config_data.get("render") or {},
+        "timing": config_data.get("timing") or {},
+        "status": "initialized",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "notes": [],
+    }
+    ensure_not_inside_repo(brief_path, kind="project brief")
+    dump_structured(brief_path, brief, fmt="json")
     resolved = {
         "project": config_data["name"],
         "slug": slug,
         "project_dir": str(proj_dir),
         "config": str(cfg_path),
+        "brief": str(brief_path),
         "workspace": ws.to_dict(),
         "template": {"ref": str(template), "resolved": str(template_path)},
         "soundtrack": {"ref": str(soundtrack) if soundtrack else None, "resolved": str(snd_path) if snd_path else None, "id": (snd_entry.id if snd_entry else None), "curated_cut_points_applied": bool(curated_ref and curated_ref.get("cut_points"))},
@@ -576,3 +762,135 @@ def init_project(
         "Review preview, take feedback (adjust cut points/in-points/variables), re-render preview.",
         "Render final only on explicit intent.",
     ])
+
+
+# ---- cut-point authoring / review (Phase 3) ----
+
+def _project_cut_points_and_onsets(config: ProjectConfig) -> tuple[list[float], list[float]]:
+    pts = [float(x) for x in ((config.analysis or {}).get("cut_points") or [])]
+    onsets: list[float] = []
+    ap = config.resolved_analysis_path
+    if ap.exists():
+        try:
+            a = load_analysis(ap)
+            onsets = list(a.beat_times or [])
+            if not pts and a.cut_points:
+                pts = list(a.cut_points)
+        except Exception:
+            pass
+    tp = config.resolved_timeline_path
+    if tp.exists() and not onsets:
+        try:
+            tl = load_timeline(tp)
+            onsets = [float(x) for x in ((tl.analysis or {}).get("beat_times") or [])]
+            if not pts:
+                pts = [float(x) for x in ((tl.analysis or {}).get("cut_points") or [])]
+        except Exception:
+            pass
+    return pts, onsets
+
+
+def cuts_show(*, project: str | Path, cut_points: list[float] | None = None) -> dict[str, Any]:
+    config = load_config(project)
+    pts = [float(x) for x in cut_points] if cut_points is not None else _project_cut_points_and_onsets(config)[0]
+    labeled = _cutpoints.label_cut_points(config, pts)
+    return ok("cuts_show", project=str(config.config_path), **labeled)
+
+
+def cuts_suggest(*, project: str | Path, onsets: list[float] | None = None, count: int | None = None, use_second_of_pair: bool = False, min_gap: float = 0.8, max_gap: float = 1.4, near: float | None = None) -> dict[str, Any]:
+    config = load_config(project)
+    pts, cache_onsets = _project_cut_points_and_onsets(config)
+    use_onsets = [float(x) for x in onsets] if onsets is not None else cache_onsets
+    res = _cutpoints.suggest_cut_points(config, onsets=use_onsets, count=count, use_second_of_pair=use_second_of_pair, min_gap=min_gap, max_gap=max_gap)
+    if near is not None and use_onsets:
+        pair = _cutpoints.suggest_second_of_pair(use_onsets, near=near, min_gap=min_gap, max_gap=max_gap)
+        if pair:
+            res["near_pair_suggestion"] = pair
+    res["onsets_available"] = len(use_onsets)
+    res["requires_confirmation"] = True
+    return ok("cuts_suggest", **res)
+
+
+def cuts_nudge(*, project: str | Path, near: float, to: float | str, onsets: list[float] | None = None, min_gap: float = 0.8, max_gap: float = 1.4, cut_points: list[float] | None = None) -> dict[str, Any]:
+    config = load_config(project)
+    pts, cache_onsets = _project_cut_points_and_onsets(config)
+    use_pts = [float(x) for x in cut_points] if cut_points is not None else pts
+    use_onsets = [float(x) for x in onsets] if onsets is not None else cache_onsets
+    res = _cutpoints.nudge_cut_points(use_pts, near=near, to=to, onsets=use_onsets, min_gap=min_gap, max_gap=max_gap)
+    res["labeled_preview"] = _cutpoints.label_cut_points(config, res["cut_points"])["boundaries"]
+    return ok("cuts_nudge", **res)
+
+
+def _save_project_config(config: ProjectConfig, data: dict[str, Any]) -> Path:
+    p = config.config_path
+    ensure_not_inside_repo(p, kind="project config")
+    if p.suffix.lower() != ".json":
+        p = p.with_suffix(".json")
+    dump_structured(p, data, fmt="json")
+    return p
+
+
+def cuts_apply(*, project: str | Path, cut_points: list[float], save_config: bool = True) -> dict[str, Any]:
+    config = load_config(project)
+    pts = [round(float(x), 4) for x in cut_points]
+    labeled = _cutpoints.label_cut_points(config, pts)
+    res = {
+        "project": str(config.config_path),
+        "cut_points": pts,
+        "labeled": labeled["boundaries"],
+        "warnings": labeled["warnings"],
+        "saved_config": False,
+        "requires_confirmation": False,
+    }
+    if save_config:
+        raw = dict(config.raw or {})
+        analysis = dict(raw.get("analysis") or {})
+        analysis["cut_points"] = pts
+        raw["analysis"] = analysis
+        path = _save_project_config(config, raw)
+        res["saved_config"] = True
+        res["config_path"] = str(path)
+    return ok("cuts_apply", **res)
+
+
+def cuts_preview(*, project: str | Path, cut_points: list[float] | None = None, save_config: bool = False, allow_unmapped: bool = True, no_probe: bool = True) -> dict[str, Any]:
+    """One-step explicit iteration: optionally persist cut points, re-plan from current config, render preview. Uses project render config and fresh timeline."""
+    config = load_config(project)
+    if cut_points is not None and save_config:
+        ar = cuts_apply(project=config.config_path, cut_points=cut_points, save_config=True)
+        if not ar.get("ok"):
+            return ar
+        config = load_config(project)
+    elif cut_points is not None and not save_config:
+        # in-memory override: write temp timeline from modified analysis
+        raw = dict(config.raw or {})
+        analysis = dict(raw.get("analysis") or {})
+        analysis["cut_points"] = [round(float(x), 4) for x in cut_points]
+        raw["analysis"] = analysis
+        # build via a transient config view
+        from .config import ProjectConfig as _PC
+        cfg2 = _PC(
+            config_path=config.config_path, project_dir=config.project_dir, template=config.template,
+            soundtrack=config.soundtrack, clips_dir=config.clips_dir, overlays_dir=config.overlays_dir,
+            branding_dir=config.branding_dir, output_dir=config.output_dir, timeline_path=config.timeline_path,
+            analysis_path=config.analysis_path, sources_manifest=config.sources_manifest, variables=config.variables,
+            analysis=analysis, timing=config.timing, ollama=config.ollama, name=config.name, raw=raw,
+        )
+        tl = build_plan(cfg2, map_clips=False, analyze=False)
+        _merge_manifest_into_timeline(tl, cfg2)
+        import tempfile
+        tmp = Path(tempfile.mkstemp(prefix='alvex-cuts-', suffix='.timeline.json')[1])
+        tl.write(tmp)
+        rr = render(project=config.config_path, timeline=tmp, preview=True, dry_run=False, allow_unmapped=allow_unmapped, no_probe=no_probe)
+        rr["cuts_applied"] = list(analysis["cut_points"])
+        rr["saved_config"] = False
+        rr["temporary_timeline"] = str(tmp)
+        return rr
+    # save_config True but cut_points None: just replan+preview current config
+    pr = plan(project=config.config_path)
+    if not pr.get("ok"):
+        return pr
+    rr = render(project=config.config_path, preview=True, dry_run=False, allow_unmapped=allow_unmapped, no_probe=no_probe)
+    rr["planned"] = pr
+    rr["saved_config"] = bool(save_config and cut_points is not None)
+    return rr

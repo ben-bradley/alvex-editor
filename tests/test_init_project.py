@@ -1,9 +1,9 @@
+import json
 from pathlib import Path
-
-import yaml
 
 from alvex_editor import api
 from alvex_editor.registry import import_soundtrack, save_curated_cut_points
+from alvex_editor.structured import load_structured
 from alvex_editor.workspace import load_workspace
 
 REPO = Path(__file__).resolve().parents[1]
@@ -37,9 +37,11 @@ def test_init_project_scaffolds_outside_repo(tmp_path):
     assert proj_dir.exists()
     cfg_path = Path(res["config"])
     assert cfg_path.exists()
-    data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    assert cfg_path.suffix == ".json"
+    data = load_structured(cfg_path)
     assert data["variables"]["address"] == "123 Main Street\nLittle Rock, Arkansas"
     assert Path(data["output_dir"]).resolve() == (proj_dir / "output").resolve()
+    assert data["sources_manifest"].endswith("sources.json")
     assert (proj_dir / "output").exists()
     # all written under workspace (outside repo)
     repo_root = REPO.resolve()
@@ -69,7 +71,7 @@ def test_init_applies_curated_cut_points(tmp_path):
     )
     assert r["ok"], r
     assert r["resolved"]["soundtrack"]["curated_cut_points_applied"] is True
-    data = yaml.safe_load(Path(r["resolved"]["config"]).read_text(encoding="utf-8"))
+    data = load_structured(Path(r["resolved"]["config"]))
     assert data["analysis"]["cut_points"] == [9.0, 18.0, 27.0]
     assert data.get("soundtrack_id") == "breeze"
 
@@ -104,7 +106,7 @@ def test_init_duplicate_overwrite_explicit(tmp_path):
     assert api.init_project(**base)["ok"]
     r = api.init_project(**base, on_exists="overwrite", name="Overwritten")
     assert r["ok"]
-    data = yaml.safe_load(Path(r["resolved"]["config"]).read_text(encoding="utf-8"))
+    data = load_structured(Path(r["resolved"]["config"]))
     assert data["name"] == "Overwritten"
 
 

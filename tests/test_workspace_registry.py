@@ -78,18 +78,14 @@ def test_curated_registry_used_by_analyze_when_no_explicit_overrides(tmp_path, m
 
     proj = ws.projects_dir / "p1"
     proj.mkdir(parents=True)
-    cfg_path = proj / "alvex.yaml"
+    cfg_path = proj / "alvex.json"
     template = (REPO / "templates" / "exterior-showcase.md").resolve()
-    cfg_path.write_text(
-        "\n".join([
-            "name: p1",
-            f"template: {template}",
-            f"soundtrack: {entry.path}",
-            "analysis:",
-            "  backend: auto",
-        ]),
-        encoding="utf-8",
-    )
+    cfg_path.write_text(json.dumps({
+        "name": "p1",
+        "template": str(template),
+        "soundtrack": str(entry.path),
+        "analysis": {"backend": "auto"},
+    }, indent=2), encoding="utf-8")
     cfg = load_config(cfg_path)
     segs = [Segment(slot_id="a", name="A"), Segment(slot_id="b", name="B"), Segment(slot_id="c", name="C")]
     a = analyze_from_config(cfg, segs)
@@ -108,18 +104,14 @@ def test_explicit_config_cut_points_override_curated(tmp_path, monkeypatch):
 
     proj = ws.projects_dir / "p2"
     proj.mkdir(parents=True)
-    cfg_path = proj / "alvex.yaml"
+    cfg_path = proj / "alvex.json"
     template = (REPO / "templates" / "exterior-showcase.md").resolve()
-    cfg_path.write_text(
-        "\n".join([
-            "name: p2",
-            f"template: {template}",
-            f"soundtrack: {entry.path}",
-            "analysis:",
-            "  cut_points: [1.0, 2.0, 3.0]",
-        ]),
-        encoding="utf-8",
-    )
+    cfg_path.write_text(json.dumps({
+        "name": "p2",
+        "template": str(template),
+        "soundtrack": str(entry.path),
+        "analysis": {"cut_points": [1.0, 2.0, 3.0]},
+    }, indent=2), encoding="utf-8")
     cfg = load_config(cfg_path)
     segs = [Segment(slot_id="a", name="A"), Segment(slot_id="b", name="B"), Segment(slot_id="c", name="C")]
     a = analyze_from_config(cfg, segs)

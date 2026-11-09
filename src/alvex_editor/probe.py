@@ -41,10 +41,41 @@ def _is_snap_binary(path: str | None) -> bool:
     return "/snap/" in p or p.startswith("/snap")
 
 
+def _win_winget_ffmpeg_bins() -> list[Path]:
+    if not sys.platform.startswith(("win", "cygwin")):
+        return []
+    local = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    roots = [
+        local / "Microsoft" / "WinGet" / "Packages",
+        local / "Microsoft" / "WinGet" / "Links",
+    ]
+    found: list[Path] = []
+    for root in roots:
+        if not root.exists():
+            continue
+        try:
+            # Links often contain ffmpeg.exe directly; Packages contain nested builds.
+            for pat in ("*ffmpeg*/**/bin/ffmpeg.exe", "*Gyan.FFmpeg*/**/bin/ffmpeg.exe", "*FFmpeg*/ffmpeg.exe", "ffmpeg.exe"):
+                for p in root.glob(pat):
+                    if p.is_file():
+                        found.append(p.parent)
+        except OSError:
+            continue
+    # dedupe, preserve order
+    out: list[Path] = []
+    seen: set[str] = set()
+    for p in found:
+        k = str(p).lower()
+        if k not in seen:
+            seen.add(k)
+            out.append(p)
+    return out
+
+
 def find_ffprobe() -> str | None:
     env = os.environ.get("FFPROBE") or os.environ.get("ALVEX_FFPROBE")
-    if env and Path(env).exists():
-        return env
+    if env and Path(env).expanduser().exists():
+        return str(Path(env).expanduser())
     p = shutil.which("ffprobe")
     if p:
         return p
@@ -52,13 +83,17 @@ def find_ffprobe() -> str | None:
         for candidate in ("/snap/ffmpeg/current/bin/ffprobe", "/snap/bin/ffprobe"):
             if Path(candidate).exists():
                 return candidate
+    for bindir in _win_winget_ffmpeg_bins():
+        cand = bindir / "ffprobe.exe"
+        if cand.exists():
+            return str(cand)
     return None
 
 
 def find_ffmpeg() -> str | None:
     env = os.environ.get("FFMPEG") or os.environ.get("ALVEX_FFMPEG")
-    if env and Path(env).exists():
-        return env
+    if env and Path(env).expanduser().exists():
+        return str(Path(env).expanduser())
     p = shutil.which("ffmpeg")
     if p:
         return p
@@ -66,6 +101,10 @@ def find_ffmpeg() -> str | None:
         for candidate in ("/snap/ffmpeg/current/bin/ffmpeg", "/snap/bin/ffmpeg"):
             if Path(candidate).exists():
                 return candidate
+    for bindir in _win_winget_ffmpeg_bins():
+        cand = bindir / "ffmpeg.exe"
+        if cand.exists():
+            return str(cand)
     return None
 
 

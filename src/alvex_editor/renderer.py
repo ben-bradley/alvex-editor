@@ -11,8 +11,6 @@ import subprocess
 import sys
 from typing import Any, Iterable
 
-import yaml
-
 from .policy import ensure_not_inside_repo
 from .probe import find_ffmpeg, find_ffprobe, probe_media
 from .timeline import Segment, Timeline, load_timeline
@@ -99,7 +97,7 @@ def _sub_vars(text: str | None, variables: dict[str, Any]) -> str | None:
 
 def load_manifest(path: str | Path) -> dict[str, dict[str, Any]]:
     path = Path(path)
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = json.loads(path.read_text(encoding="utf-8") or "{}")
     if not isinstance(data, dict):
         raise ValueError(f"Manifest must be a mapping: {path}")
     sources = data.get("sources", data)
@@ -448,8 +446,10 @@ def render_timeline(
 ) -> RenderPlan:
     timeline = load_timeline(timeline_path)
     if manifest_path:
-        manifest = load_manifest(manifest_path)
-        apply_manifest(timeline, manifest, base_dir=Path(manifest_path).resolve().parent)
+        mp = Path(manifest_path)
+        if mp.exists():
+            manifest = load_manifest(mp)
+            apply_manifest(timeline, manifest, base_dir=mp.resolve().parent)
     plan = build_render_plan(
         timeline,
         output,

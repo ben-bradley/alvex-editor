@@ -1,0 +1,43 @@
+{
+  "name": "house-shots-321-test-st",
+  "template": "templates/exterior-showcase.md",
+  "clips_dir": "D:/drone/2026-10-29 - House Shots/clips/RE Video Clips/RE Video Clips",
+  "soundtrack": "D:/drone/2026-10-29 - House Shots/clips/RE Video Clips/RE Video Clips/bensound-acousticbreeze.mp3",
+  "output_dir": "D:/drone/2026-10-29 - House Shots/clips/RE Video Clips/RE Video Clips",
+  "timeline_path": "D:/drone/2026-10-29 - House Shots/clips/RE Video Clips/RE Video Clips/timeline.json",
+  "analysis_path": "D:/drone/2026-10-29 - House Shots/clips/RE Video Clips/RE Video Clips/analysis.json",
+  "sources_manifest": "D:/drone/2026-10-29 - House Shots/clips/RE Video Clips/RE Video Clips/sources.yaml",
+  "variables": {
+    "address": "321 Test St\nBryant, Arkansas"
+  },
+  "ollama": {
+    "host": "http://127.0.0.1:11434",
+    "model": "qwen3-vl:latest",
+    "vision_model": "qwen3-vl:latest",
+    "timeout": 240
+  },
+  "analysis": {
+    "backend": "auto",
+    "cut_points": [
+      9.822,
+      19.2958,
+      28.816,
+      38.3129,
+      47.8331,
+      57.3068,
+      66.8502,
+      76.324,
+      85.2405,
+      98.8938
+    ]
+  },
+  "render": {
+    "fontfile": "C:/Windows/Fonts/arial.ttf",
+    "title_x": "(w-text_w)/2",
+    "title_y": "(h*5/6)-(text_h/2)",
+    "video_filters": [
+      "hqdn3d=1.5:1.5:4:4",
+      "vibrance=intensity=0.10"
+    ]
+  }
+}

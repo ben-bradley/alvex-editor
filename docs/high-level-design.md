@@ -57,7 +57,7 @@ Key principle: **analysis produces signals; the planner makes decisions; renderi
    - Later: lightweight GUI or web UI for review/mapping; the pipeline remains the same backend.
 
 2. **Project model**
-   - A project directory/config (e.g., `alvex.yaml` or `project.json`) referencing: template path, soundtrack, clip folder, branding/assets, output settings, and cached analysis artifacts.
+   - A project directory/config (e.g., `alvex.json` or `project.json`) referencing: template path, soundtrack, clip folder, branding/assets, output settings, and cached analysis artifacts.
    - Enables repeatable renders and incremental re-analysis.
 
 3. **Template engine**

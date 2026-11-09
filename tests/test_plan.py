@@ -5,7 +5,7 @@ from alvex_editor.config import load_config
 from alvex_editor.planner import build_plan
 
 REPO = Path(__file__).resolve().parents[1]
-CONFIG = REPO / "examples" / "exterior-showcase" / "alvex.yaml"
+CONFIG = REPO / "examples" / "exterior-showcase" / "alvex.json"
 
 
 def test_load_example_config():
@@ -37,25 +37,21 @@ def test_build_plan_writes_valid_timeline(tmp_path):
 
 def test_build_plan_timing_overrides(tmp_path):
     template = (REPO / "templates" / "exterior-showcase.md").resolve()
-    cfg_path = tmp_path / "alvex.yaml"
-    cfg_path.write_text(
-        "\n".join([
-            "name: timing-test",
-            f"template: {template}",
-            "soundtrack: /media/music.mp3",
-            "analysis:",
-            "  bpm: 120",
-            "variables:",
-            '  address: "789 Pine Rd"',
-            "timing:",
-            "  intro_fade_seconds: 3.5",
-            "  intro_title_after_seconds: 0.5",
-            "  intro_title_duration_seconds: 4.0",
-            "  outro_fade_seconds: 4.0",
-            "  outro_title_before_end_seconds: 5.0",
-        ]),
-        encoding="utf-8",
-    )
+    cfg_path = tmp_path / "alvex.json"
+    cfg_path.write_text(json.dumps({
+        "name": "timing-test",
+        "template": str(template),
+        "soundtrack": "/media/music.mp3",
+        "analysis": {"bpm": 120},
+        "variables": {"address": "789 Pine Rd"},
+        "timing": {
+            "intro_fade_seconds": 3.5,
+            "intro_title_after_seconds": 0.5,
+            "intro_title_duration_seconds": 4.0,
+            "outro_fade_seconds": 4.0,
+            "outro_title_before_end_seconds": 5.0,
+        },
+    }, indent=2), encoding="utf-8")
     cfg = load_config(cfg_path)
     timeline = build_plan(cfg)
     intro = timeline.segments[0]
@@ -74,21 +70,18 @@ def test_build_plan_timing_overrides(tmp_path):
 
 def test_build_plan_timing_decoupled_audio_fade(tmp_path):
     template = (REPO / "templates" / "exterior-showcase.md").resolve()
-    cfg_path = tmp_path / "alvex.yaml"
-    cfg_path.write_text(
-        "\n".join([
-            "name: timing-test",
-            f"template: {template}",
-            "soundtrack: /media/music.mp3",
-            "analysis:",
-            "  bpm: 120",
-            "timing:",
-            "  outro_video_fade_seconds: 7.0",
-            "  outro_audio_fade_seconds: 7.0",
-            "  outro_audio_fade_out_before_end_seconds: 2.629",
-        ]),
-        encoding="utf-8",
-    )
+    cfg_path = tmp_path / "alvex.json"
+    cfg_path.write_text(json.dumps({
+        "name": "timing-test",
+        "template": str(template),
+        "soundtrack": "/media/music.mp3",
+        "analysis": {"bpm": 120},
+        "timing": {
+            "outro_video_fade_seconds": 7.0,
+            "outro_audio_fade_seconds": 7.0,
+            "outro_audio_fade_out_before_end_seconds": 2.629,
+        },
+    }, indent=2), encoding="utf-8")
     cfg = load_config(cfg_path)
     timeline = build_plan(cfg)
     outro = timeline.segments[-1]

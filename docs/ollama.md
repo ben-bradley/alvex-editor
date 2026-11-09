@@ -24,14 +24,14 @@ Choose a model available in your Ollama instance. A vision-capable model can han
 ollama pull qwen3-vl:latest
 ```
 
-## 3. Configure Alvex (`alvex.yaml`)
+## 3. Configure Alvex (`alvex.json`)
 
 Add an `ollama` block to your project config. Alvex reads this for `alvex-editor align` and `alvex-editor select` (CLI flags override config).
 
-```yaml
-# alvex.yaml
+```json
+# alvex.json
 clips_dir: media/clips
-sources_manifest: sources.yaml
+sources_manifest: sources.json
 
 ollama:
   host: http://127.0.0.1:11434      # or http://192.168.11.136:11434 for a LAN host
@@ -49,16 +49,16 @@ Config keys:
 ## 4. Run alignment (human confirmation required)
 
 ```bash
-# LLM mapping suggestions -> writes sources.suggested.yaml for review
-alvex align -p alvex.yaml --host http://192.168.11.136:11434 --model qwen3-vl:latest
+# LLM mapping suggestions -> writes sources.suggested.json for review
+alvex align -p alvex.json --host http://192.168.11.136:11434 --model qwen3-vl:latest
 
 # optional: vision-label clips first (requires ffmpeg; uses vision_model, defaults to model)
-alvex align -p alvex.yaml --host http://192.168.11.136:11434 --model qwen3-vl:latest --vision
+alvex align -p alvex.json --host http://192.168.11.136:11434 --model qwen3-vl:latest --vision
 
-# after reviewing sources.suggested.yaml, apply explicitly
-alvex align -p alvex.yaml --host http://192.168.11.136:11434 --model qwen3-vl:latest --apply
+# after reviewing sources.suggested.json, apply explicitly
+alvex align -p alvex.json --host http://192.168.11.136:11434 --model qwen3-vl:latest --apply
 # then render using the manifest
-alvex render -p alvex.yaml -m sources.yaml --dry-run
+alvex render -p alvex.json -m sources.json --dry-run
 ```
 
 `alvex-editor align` **never silently applies mappings**: it writes a suggested manifest for review and only writes the target manifest when you pass `--apply` (explicit confirmation). Use `--clips`, `--timeline`, `--output`, or `--manifest` to override paths.
@@ -69,14 +69,14 @@ alvex render -p alvex.yaml -m sources.yaml --dry-run
 
 ```bash
 # heuristic selection (ffprobe; no model call) -> writes sources.selected.suggested.yaml
-alvex select -p alvex.yaml
+alvex select -p alvex.json
 
 # vision-ranked selection (ffmpeg frame extraction + vision model; slower)
-alvex select -p alvex.yaml --host http://192.168.11.136:11434 --model qwen3-vl:latest --vision --candidates 5
+alvex select -p alvex.json --host http://192.168.11.136:11434 --model qwen3-vl:latest --vision --candidates 5
 
 # review, then apply explicitly
-alvex select -p alvex.yaml --apply
-alvex render -p alvex.yaml --dry-run
+alvex select -p alvex.json --apply
+alvex render -p alvex.json --dry-run
 ```
 
 Uses the same `ollama` config/flags (`host`, `model`/`vision_model`, `timeout`). Like `align`, it writes a suggested manifest for review and only applies with `--apply`. Requires `ffprobe` (probing/clamping) and `ffmpeg` for `--vision` frame extraction.
