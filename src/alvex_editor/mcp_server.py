@@ -40,6 +40,48 @@ def build_server():
     mcp = Server("alvex-editor")
 
     @mcp.tool()
+    def workspace_info(workspace: str | None = None, save: bool = False) -> dict[str, Any]:
+        """Show the visible Alvex workspace (outside repo): ~/Alvex with templates/, soundtracks/, projects/. At chat start, confirm these locations with the user. save=true writes config and ensures dirs (explicit intent)."""
+        return api.workspace_info(workspace=workspace, save=save)
+
+    @mcp.tool()
+    def list_templates(workspace: str | None = None) -> dict[str, Any]:
+        """List available templates from the bundled repo example and the user template registry (~/Alvex/templates/)."""
+        return api.templates_list(workspace=workspace)
+
+    @mcp.tool()
+    def list_soundtracks(workspace: str | None = None) -> dict[str, Any]:
+        """List the soundtrack registry (~/Alvex/soundtracks/), including whether each has curated, reusable cut points."""
+        return api.soundtracks_list(workspace=workspace)
+
+    @mcp.tool()
+    def init_project(
+        template: str = "standard real estate template",
+        soundtrack: str | None = None,
+        clips_dir: str | None = None,
+        address: str | None = None,
+        name: str | None = None,
+        project_id: str | None = None,
+        workspace: str | None = None,
+        on_exists: str = "fail",
+        register_soundtrack: bool = False,
+        soundtrack_title: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a new project under ~/Alvex/projects/<slug>/ (outside repo) from resolved inputs. Resolves template aliases and soundtrack registry (reuses curated cut points if present). Confirm resolved inputs with the user. If the project exists, on_exists='fail' returns requires_resolution+options (ask the user, then retry with overwrite|suffix)."""
+        variables = {"address": address} if address else None
+        return api.init_project(workspace=workspace, name=name, address=address, template=template, soundtrack=soundtrack, clips_dir=clips_dir, project_id=project_id, variables=variables, on_exists=on_exists, register_soundtrack=register_soundtrack, soundtrack_title=soundtrack_title)
+
+    @mcp.tool()
+    def import_soundtrack(source: str, workspace: str | None = None, track_id: str | None = None, title: str | None = None) -> dict[str, Any]:
+        """Copy/import an MP3 into the soundtrack registry (~/Alvex/soundtracks/<id>/) so it is self-contained and reusable."""
+        return api.soundtrack_import(source=source, workspace=workspace, track_id=track_id, title=title)
+
+    @mcp.tool()
+    def save_soundtrack_cut_points(soundtrack: str, cut_points: list[float] | None = None, bpm: float | None = None, offset: float | None = None, notes: list[str] | None = None, workspace: str | None = None) -> dict[str, Any]:
+        """Save curated, human-confirmed cut points for a registered soundtrack (map once, reuse). Call only after reviewing/confirming the cut points with the user."""
+        return api.soundtrack_set_cut_points(soundtrack=soundtrack, workspace=workspace, cut_points=cut_points, bpm=bpm, offset=offset, notes=notes, method="curated")
+
+    @mcp.tool()
     def project_status(project: str) -> dict[str, Any]:
         """Inspect an Alvex project: config, template/soundtrack/clips presence, timeline/analysis cache, and ffmpeg/ffprobe/ollama availability."""
         return api.project_status(project=project)

@@ -3,18 +3,33 @@ from __future__ import annotations
 from dataclasses import asdict, is_dataclass
 import json
 from pathlib import Path
+import re
 from typing import Any
+
+import yaml
 
 from .align import align_project, write_manifest
 from .audio import analyze_soundtrack
 from .config import ProjectConfig, load_config
 from .ollama import OllamaConfig, OllamaError
 from .planner import build_plan, discover_clips
+from .policy import ensure_not_inside_repo
 from .probe import find_ffmpeg, find_ffprobe, probe_media
+from .registry import (
+    import_soundtrack,
+    list_soundtracks,
+    list_templates,
+    load_curated_cut_points,
+    resolve_soundtrack,
+    resolve_template,
+    save_curated_cut_points,
+    slugify,
+)
 from .renderer import RenderOptions, apply_manifest, build_render_plan, load_manifest, run_render
 from .select import select_project
 from .template import load_template
 from .timeline import load_timeline
+from .workspace import load_workspace, save_workspace_config
 
 
 def _jsonable(value: Any) -> Any:
@@ -361,3 +376,203 @@ def apply_manifest_file(*, project: str | Path | None = None, suggested: str | P
     tgt = Path(target).expanduser().resolve() if target else (_resolve_manifest_target(config, None) or ((config.project_dir if config else src.parent) / "sources.yaml"))
     write_manifest(raw if isinstance(raw, dict) else {"sources": data}, tgt)
     return ok("apply_manifest", suggested=str(src), applied_manifest=str(tgt), applied=True)
+
+
+# ---- workspace / registries / project init ----
+
+def workspace_info(*, workspace: str | Path | None = None, save: bool = False) -> dict[str, Any]:
+    ws = load_workspace(workspace)
+    if save:
+        save_workspace_config(ws)
+        ws.ensure_dirs(create=True)
+    return ok("workspace", workspace=ws.to_dict(), templates=list_templates(ws), soundtracks=list_soundtracks(ws))
+
+
+def templates_list(*, workspace: str | Path | None = None) -> dict[str, Any]:
+    ws = load_workspace(workspace)
+    return ok("templates", templates=[_jsonable(t.to_dict()) for t in list_templates(ws)], workspace=ws.to_dict())
+
+
+def soundtracks_list(*, workspace: str | Path | None = None) -> dict[str, Any]:
+    ws = load_workspace(workspace)
+    items = []
+    for s in list_soundtracks(ws):
+        d = s.to_dict()
+        d["has_curated_cut_points"] = bool(load_curated_cut_points(s, workspace=ws))
+        items.append(d)
+    return ok("soundtracks", soundtracks=items, workspace=ws.to_dict())
+
+
+def soundtrack_import(*, source: str | Path, workspace: str | Path | None = None, track_id: str | None = None, title: str | None = None, aliases: list[str] | None = None) -> dict[str, Any]:
+    ws = load_workspace(workspace)
+    entry = import_soundtrack(source, workspace=ws, track_id=track_id, title=title, aliases=aliases, copy=True)
+    return ok("soundtrack_import", soundtrack=entry.to_dict(), copied=True, workspace=ws.to_dict())
+
+
+def soundtrack_set_cut_points(
+    *,
+    soundtrack: str | Path,
+    workspace: str | Path | None = None,
+    cut_points: list[float] | None = None,
+    bpm: float | None = None,
+    offset: float | None = None,
+    beat_times: list[float] | None = None,
+    notes: list[str] | None = None,
+    method: str = "curated",
+) -> dict[str, Any]:
+    ws = load_workspace(workspace)
+    ref = save_curated_cut_points(soundtrack, cut_points=cut_points, bpm=bpm, offset=offset, beat_times=beat_times, notes=notes, method=method, workspace=ws)
+    entry = resolve_soundtrack(soundtrack, workspace=ws)
+    return ok("soundtrack_set_cut_points", cut_points_path=str(ref), soundtrack=entry.to_dict() if entry else None, curated=True)
+
+
+def _derive_address_lines(address: str) -> str:
+    if "\\n" in address:
+        return address.replace("\\r\\n", "\\n")
+    parts = [p.strip() for p in re.split(r",\s*", address) if p.strip()]
+    if len(parts) >= 3:
+        return parts[0] + "\n" + ", ".join(parts[1:])
+    if len(parts) == 2:
+        return parts[0] + "\n" + parts[1]
+    return address.strip()
+
+
+def _next_available_dir(base: Path) -> Path:
+    if not base.exists():
+        return base
+    i = 2
+    while True:
+        cand = base.parent / f"{base.name}-{i}"
+        if not cand.exists():
+            return cand
+        i += 1
+
+
+def init_project(
+    *,
+    workspace: str | Path | None = None,
+    name: str | None = None,
+    address: str | None = None,
+    template: str | Path = "standard real estate template",
+    soundtrack: str | Path | None = None,
+    clips_dir: str | Path | None = None,
+    project_id: str | None = None,
+    variables: dict[str, Any] | None = None,
+    on_exists: str = "fail",
+    register_soundtrack: bool = False,
+    soundtrack_title: str | None = None,
+    ollama: dict[str, Any] | None = None,
+    analysis: dict[str, Any] | None = None,
+    render: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    ws = load_workspace(workspace)
+    ensure_not_inside_repo(ws.root, kind="workspace")
+    # resolve template
+    try:
+        template_path = resolve_template(template, workspace=ws)
+    except Exception as e:
+        return fail("init", f"Could not resolve template {template!r}: {e}")
+    # resolve soundtrack
+    snd_path: Path | None = None
+    snd_entry = None
+    curated_ref = None
+    if soundtrack:
+        snd_entry = resolve_soundtrack(soundtrack, workspace=ws)
+        if snd_entry and snd_entry.path:
+            snd_path = snd_entry.path
+            curated_ref = load_curated_cut_points(snd_entry, workspace=ws)
+        else:
+            sp = Path(str(soundtrack)).expanduser().resolve()
+            if sp.exists():
+                snd_path = sp
+                if register_soundtrack:
+                    snd_entry = import_soundtrack(sp, workspace=ws, title=soundtrack_title, copy=True)
+                    snd_path = snd_entry.path
+                    curated_ref = load_curated_cut_points(snd_entry, workspace=ws)
+            else:
+                return fail("init", f"Soundtrack not found: {soundtrack}")
+    # resolve clips
+    clips: Path | None = None
+    if clips_dir:
+        clips = Path(str(clips_dir)).expanduser().resolve()
+        if not clips.exists():
+            return fail("init", f"Clips directory not found: {clips}")
+    # slug/name
+    slug_source = project_id or name or address or "project"
+    slug = slugify(str(slug_source))
+    proj_dir = ws.project_dir(slug)
+    if proj_dir.exists():
+        if on_exists == "fail":
+            return fail(
+                "init",
+                f"Project already exists: {proj_dir}",
+                exists=True,
+                project_dir=str(proj_dir),
+                requires_resolution=True,
+                options=["overwrite", "suffix", "cancel"],
+                hint="In chat, ask the user what to do. For CLI/MCP pass on_exists=overwrite|suffix|fail.",
+            )
+        if on_exists == "suffix":
+            proj_dir = _next_available_dir(proj_dir)
+            slug = proj_dir.name
+        elif on_exists == "overwrite":
+            pass
+        else:
+            return fail("init", f"Invalid on_exists={on_exists!r}; use fail|overwrite|suffix", requires_resolution=True)
+    ensure_not_inside_repo(proj_dir, kind="project")
+    out_dir = proj_dir / "output"
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ws.ensure_dirs(create=True)
+    vars_out: dict[str, Any] = dict(variables or {})
+    if address and "address" not in vars_out:
+        vars_out["address"] = _derive_address_lines(str(address))
+    cfg_analysis: dict[str, Any] = {"backend": "auto"}
+    if isinstance(analysis, dict):
+        cfg_analysis.update(analysis)
+    # apply curated cut points as explicit, reusable reference (map once, reuse)
+    if curated_ref and not any(k in cfg_analysis for k in ("cut_points", "bpm", "beat_times")):
+        if curated_ref.get("cut_points"):
+            cfg_analysis["cut_points"] = curated_ref.get("cut_points")
+        if curated_ref.get("bpm") is not None and "bpm" not in cfg_analysis:
+            cfg_analysis["bpm"] = curated_ref.get("bpm")
+        if curated_ref.get("offset") is not None and "offset" not in cfg_analysis:
+            cfg_analysis["offset"] = curated_ref.get("offset")
+    config_data: dict[str, Any] = {
+        "version": 1,
+        "name": name or (address.split(",")[0].strip() if address else slug),
+        "template": str(template_path),
+        "soundtrack": str(snd_path) if snd_path else None,
+        "clips_dir": str(clips) if clips else None,
+        "output_dir": str(out_dir),
+        "analysis_path": str(out_dir / "analysis.json"),
+        "timeline_path": str(out_dir / "timeline.json"),
+        "sources_manifest": str(out_dir / "sources.yaml"),
+        "variables": vars_out,
+        "analysis": cfg_analysis,
+        "ollama": dict(ollama or {}),
+        "render": dict(render or {"fontfile": None, "box": False}),
+        "workspace": str(ws.root),
+    }
+    if snd_entry:
+        config_data["soundtrack_id"] = snd_entry.id
+    cfg_path = proj_dir / "alvex.yaml"
+    cfg_path.write_text(yaml.safe_dump(config_data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    resolved = {
+        "project": config_data["name"],
+        "slug": slug,
+        "project_dir": str(proj_dir),
+        "config": str(cfg_path),
+        "workspace": ws.to_dict(),
+        "template": {"ref": str(template), "resolved": str(template_path)},
+        "soundtrack": {"ref": str(soundtrack) if soundtrack else None, "resolved": str(snd_path) if snd_path else None, "id": (snd_entry.id if snd_entry else None), "curated_cut_points_applied": bool(curated_ref and curated_ref.get("cut_points"))},
+        "clips_dir": str(clips) if clips else None,
+        "variables": vars_out,
+        "output_dir": str(out_dir),
+    }
+    return ok("init", created=True, on_exists=on_exists, resolved=resolved, next_steps=[
+        "Confirm resolved inputs (paths, address, template, soundtrack/cut points).",
+        "Run analyze/plan, then render a preview (dry-run/preview first).",
+        "Review preview, take feedback (adjust cut points/in-points/variables), re-render preview.",
+        "Render final only on explicit intent.",
+    ])

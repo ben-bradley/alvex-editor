@@ -198,6 +198,91 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     return _emit(args, r, lines)
 
 
+def cmd_workspace(args: argparse.Namespace) -> int:
+    r = api.workspace_info(workspace=getattr(args, "workspace", None), save=bool(getattr(args, "save", False)))
+    if not r.get("ok"):
+        return _emit(args, r)
+    w = r.get("workspace") or {}
+    lines = [
+        f"Workspace: {w.get('root')} (exists={w.get('exists')})",
+        f"  templates:   {w.get('templates_dir')}",
+        f"  soundtracks: {w.get('soundtracks_dir')}",
+        f"  projects:    {w.get('projects_dir')}",
+        f"Templates: {len(r.get('templates') or [])} | Soundtracks: {len(r.get('soundtracks') or [])}",
+    ]
+    return _emit(args, r, lines)
+
+
+def cmd_init(args: argparse.Namespace) -> int:
+    vars_in = {}
+    if getattr(args, "address", None):
+        vars_in["address"] = args.address
+    r = api.init_project(
+        workspace=getattr(args, "workspace", None),
+        name=getattr(args, "name", None),
+        address=getattr(args, "address", None),
+        template=getattr(args, "template", "standard real estate template"),
+        soundtrack=getattr(args, "soundtrack", None),
+        clips_dir=getattr(args, "clips", None),
+        project_id=getattr(args, "project_id", None),
+        variables=vars_in or None,
+        on_exists=getattr(args, "on_exists", "fail"),
+        register_soundtrack=bool(getattr(args, "register_soundtrack", False)),
+        soundtrack_title=getattr(args, "soundtrack_title", None),
+    )
+    if not r.get("ok"):
+        return _emit(args, r)
+    res = r.get("resolved") or {}
+    lines = [
+        f"Created project: {res.get('project')} ({res.get('config')})",
+        f"  workspace:  { (res.get('workspace') or {}).get('root') }",
+        f"  template:   { (res.get('template') or {}).get('resolved') }",
+        f"  soundtrack: { (res.get('soundtrack') or {}).get('resolved') } curated_cuts={ (res.get('soundtrack') or {}).get('curated_cut_points_applied') }",
+        f"  clips_dir:  {res.get('clips_dir')}",
+        f"  output:     {res.get('output_dir')}",
+        "Confirm resolved inputs, then analyze/plan and render a preview. Final render only on explicit intent.",
+    ]
+    return _emit(args, r, lines)
+
+
+def cmd_templates(args: argparse.Namespace) -> int:
+    r = api.templates_list(workspace=getattr(args, "workspace", None))
+    if not r.get("ok"):
+        return _emit(args, r)
+    lines = [f"Templates ({len(r.get('templates') or [])}):"]
+    for t in r.get("templates") or []:
+        aliases = f" aliases={','.join(t.get('aliases') or [])}" if t.get('aliases') else ""
+        lines.append(f"  - {t['id']} [{t['source']}]: {t['path']}{aliases}")
+    return _emit(args, r, lines)
+
+
+def cmd_soundtracks(args: argparse.Namespace) -> int:
+    action = getattr(args, "soundtracks_action", "list")
+    ws = getattr(args, "workspace", None)
+    if action == "import":
+        r = api.soundtrack_import(source=args.source, workspace=ws, track_id=getattr(args, "track_id", None), title=getattr(args, "title", None), aliases=[a.strip() for a in (getattr(args, "aliases", "") or "").split(",") if a.strip()] or None)
+        if not r.get("ok"):
+            return _emit(args, r)
+        s = r.get("soundtrack") or {}
+        return _emit(args, r, [f"Imported soundtrack: {s.get('id')} -> {s.get('path')}", f"Curated cut points: {s.get('cut_points_path')} (set with `soundtracks set-cuts`)"])
+    if action == "set-cuts":
+        cuts = None
+        if getattr(args, "cut_points", None):
+            cuts = [float(x.strip()) for x in str(args.cut_points).split(",") if x.strip()]
+        notes = [n for n in (getattr(args, "note", None) or []) if n]
+        r = api.soundtrack_set_cut_points(soundtrack=args.soundtrack, workspace=ws, cut_points=cuts, bpm=getattr(args, "bpm", None), offset=getattr(args, "offset", None), notes=notes or None)
+        if not r.get("ok"):
+            return _emit(args, r)
+        return _emit(args, r, [f"Saved curated cut points: {r.get('cut_points_path')}", "Projects using this registered soundtrack can reuse these cut points (map once, reuse)."])
+    r = api.soundtracks_list(workspace=ws)
+    if not r.get("ok"):
+        return _emit(args, r)
+    lines = [f"Soundtracks ({len(r.get('soundtracks') or [])}):"]
+    for s in r.get("soundtracks") or []:
+        lines.append(f"  - {s['id']}: {s.get('path')} curated_cuts={s.get('has_curated_cut_points')}")
+    return _emit(args, r, lines)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="alvex-editor", description="Alvex Editor - template-driven video production")
     sub = p.add_subparsers(dest="command", required=True)
@@ -223,6 +308,51 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--no-cache", action="store_true", help="Do not write the analysis cache to analysis_path")
     analyze.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     analyze.set_defaults(func=cmd_analyze)
+
+    ws = sub.add_parser("workspace", help="Show/init the Alvex workspace (visible, outside repo: ~/Alvex with templates/, soundtracks/, projects/)")
+    ws.add_argument("--workspace", "-w", help="Workspace root (default: ~/Alvex or ALVEX_WORKSPACE)")
+    ws.add_argument("--save", action="store_true", help="Write workspace config and ensure directories exist (outside repo)")
+    ws.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    ws.set_defaults(func=cmd_workspace)
+
+    initp = sub.add_parser("init", help="Create a new project in the workspace (outside repo). Confirms resolved inputs; on duplicate, requires explicit --on-exists.")
+    initp.add_argument("--workspace", "-w", help="Workspace root (default: ~/Alvex)")
+    initp.add_argument("--name", help="Project name")
+    initp.add_argument("--address", help="Property/address label (used for title variable; newline inserted for 2-line overlay)")
+    initp.add_argument("--template", default="standard real estate template", help="Template alias or path (default: standard real estate template)")
+    initp.add_argument("--soundtrack", help="Soundtrack path or registry id/alias (curated cut points reused if registered)")
+    initp.add_argument("--clips", help="Source clips directory (outside repo)")
+    initp.add_argument("--project-id", dest="project_id", help="Explicit project folder slug (default: derived from name/address)")
+    initp.add_argument("--on-exists", choices=["fail", "overwrite", "suffix"], default="fail", help="If project exists: fail (default; ask user/choose explicitly), overwrite, or suffix")
+    initp.add_argument("--register-soundtrack", action="store_true", help="Copy/import the soundtrack file into the workspace soundtrack registry")
+    initp.add_argument("--soundtrack-title", help="Title when registering the soundtrack")
+    initp.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    initp.set_defaults(func=cmd_init)
+
+    tmpls = sub.add_parser("templates", help="List available templates (bundled + workspace registry)")
+    tmpls.add_argument("--workspace", "-w", help="Workspace root")
+    tmpls.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    tmpls.set_defaults(func=cmd_templates)
+
+    snds = sub.add_parser("soundtracks", help="List or manage the soundtrack registry (import MP3s, save curated cut points)")
+    snds.add_argument("--workspace", "-w", help="Workspace root")
+    snds.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    sndsub = snds.add_subparsers(dest="soundtracks_action")
+    sndsub.add_parser("list", help="List registered soundtracks")
+    sndimp = sndsub.add_parser("import", help="Copy/import an MP3 into ~/Alvex/soundtracks/<id>/ and register it")
+    sndimp.add_argument("source", help="Path to MP3 file")
+    sndimp.add_argument("--track-id", dest="track_id", help="Registry id/slug")
+    sndimp.add_argument("--title", help="Display title")
+    sndimp.add_argument("--aliases", help="Comma-separated aliases")
+    sndimp.set_defaults(func=cmd_soundtracks)
+    sndcuts = sndsub.add_parser("set-cuts", help="Save curated, human-confirmed cut points for a registered soundtrack (map once, reuse)")
+    sndcuts.add_argument("soundtrack", help="Soundtrack registry id/alias/path")
+    sndcuts.add_argument("--cut-points", dest="cut_points", help="Comma-separated cut point seconds (segment-end boundaries, in order)")
+    sndcuts.add_argument("--bpm", type=float, help="BPM")
+    sndcuts.add_argument("--offset", type=float, help="Beat offset seconds")
+    sndcuts.add_argument("--note", action="append", help="Provenance note (repeatable)")
+    sndcuts.set_defaults(func=cmd_soundtracks)
+    snds.set_defaults(func=cmd_soundtracks)
 
     render = sub.add_parser("render", help="Render a resolved timeline to video (FFmpeg)")
     render.add_argument("--project", "-p", help="Path to project config (alvex.yaml)")

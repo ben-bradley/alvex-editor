@@ -15,6 +15,36 @@ from .policy import ensure_not_inside_repo
 from .timeline import Segment, Timeline
 
 
+def _load_curated_soundtrack_analysis(soundtrack: Path) -> "AudioAnalysis | None":
+    try:
+        from .registry import load_curated_cut_points, resolve_soundtrack
+        from .workspace import load_workspace
+
+        ws = load_workspace()
+        entry = resolve_soundtrack(soundtrack, workspace=ws)
+        if not entry:
+            return None
+        ref = load_curated_cut_points(entry, workspace=ws)
+        if not ref or not isinstance(ref, dict):
+            return None
+        if not any(ref.get(k) for k in ("cut_points", "bpm", "beat_times", "beats")):
+            return None
+        a = AudioAnalysis(
+            source=str(soundtrack),
+            bpm=float(ref["bpm"]) if ref.get("bpm") is not None else None,
+            offset=float(ref.get("offset") or 0.0),
+            duration=float(ref["duration"]) if ref.get("duration") is not None else None,
+            beat_times=[float(t) for t in (ref.get("beat_times") or ref.get("beats") or [])],
+            cut_points=[float(t) for t in (ref.get("cut_points") or [])],
+            method=str(ref.get("method") or "curated"),
+            notes=[f"curated soundtrack registry: {entry.id}", *list(ref.get("notes") or [])],
+        )
+        return a
+    except Exception:
+        return None
+
+
+
 @dataclass
 class AudioAnalysis:
     source: str | None = None
@@ -374,6 +404,11 @@ def analyze_from_config(config: ProjectConfig, segments: Iterable[Segment], *, b
         return a
 
     snd = config.soundtrack_path
+    # Curated soundtrack registry reference (user-confirmed, reusable) wins over auto cache/detection when no explicit overrides.
+    if snd and snd.exists() and not has_explicit and not refresh and backend in ("auto", "onsets", "library", "curated"):
+        curated = _load_curated_soundtrack_analysis(snd)
+        if curated and (curated.beat_times or curated.cut_points or curated.bpm):
+            return curated
     # Global library reuse by soundtrack identity (when no explicit timing overrides).
     if snd and snd.exists() and not has_explicit and not refresh and backend in ("auto", "onsets", "library"):
         lib = load_library_entry(snd, config)

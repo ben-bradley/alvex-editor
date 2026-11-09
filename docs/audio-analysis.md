@@ -2,45 +2,54 @@
 
 Alvex analyzes a soundtrack to produce a **beat/cut-point grid** and resolves each timeline segment's `resolved_duration` and contiguous `timeline_in`/`timeline_out` in `timeline.json`, respecting `min_duration`/`max_duration` and snapping `on-beat` cuts to the grid.
 
-## Cut-point library (recommended)
+## Two reusable layers (know the difference)
 
-The built-in **`onsets`** backend detects musically meaningful transition/onset peaks from the soundtrack using **ffmpeg + numpy** (no extra audio deps like librosa required). Results are cached in a **song cut-point library** keyed by the soundtrack's content hash so each song is analyzed once and reused across projects/runs.
+1. **Curated soundtrack registry reference (authoritative, user-facing, recommended)** — stored in the visible workspace at `~/Alvex/soundtracks/<id>/cut-points.yaml` (indexed in `~/Alvex/soundtracks/registry.yaml`; MP3s are copied/imported into the registry). Contains **human-confirmed** `cut_points` (and/or `bpm`/`offset`/`beat_times`) with provenance. **Map once, reuse across projects.** Saved only on explicit confirmation (CLI `alvex-editor soundtracks set-cuts ...`, MCP `save_soundtrack_cut_points`). Project `init` applies curated cuts as explicit `analysis.cut_points` when available.
+2. **Hash-keyed onset detection library/cache (internal optimization)** — auto-detected onset peaks cached by soundtrack content hash (default `~/.cache/alvex/analysis/<soundtrack>-<hash>.json`, honors `XDG_CACHE_HOME`; override with `analysis.library_dir`). Useful for seeding candidates and avoiding re-detection, but **not** the curated source of truth.
+
+Explicit per-project `analysis.cut_points`/`bpm`/`beat_times` in `alvex.yaml` **always win** over curated refs and caches (hand-tuned per job).
+
+## Cut-point mapping workflow (curated, confirm-gated)
+1. Add/import the soundtrack: `alvex-editor soundtracks import /path/to/song.mp3 --track-id acoustic-breeze --title "Acoustic Breeze" --json` (copies MP3 into `~/Alvex/soundtracks/<id>/`).
+2. Seed candidates: `alvex-editor analyze -p <project>/alvex.yaml --backend onsets` (detection) and/or review existing refs.
+3. Work with the user to refine `cut_points` (segment-end boundaries, seconds, in order; align to beats/duration/slot count).
+4. **Review, then explicitly confirm and save**: `alvex-editor soundtracks set-cuts acoustic-breeze --cut-points 10.82,19.3,28.82,... --json` (or MCP `save_soundtrack_cut_points`). The agent must confirm with the user before saving.
+
+## Detection backends & reuse
 
 ```bash
-# Analyze a song and (re)build its library entry
-alvex analyze --project alvex.yaml --backend onsets --refresh
+# Seed/compute detection (updates hash library)
+alvex-editor analyze --project alvex.yaml --backend onsets --refresh
 
-# Reuse cached/library analysis (default behavior when no explicit timing is set)
-alvex analyze --project alvex.yaml
-alvex plan --project alvex.yaml
+# Reuse curated ref / library / project cache (default when no explicit timing overrides)
+alvex-editor analyze --project alvex.yaml
+alvex-editor plan --project alvex.yaml
 ```
 
-- **Library cache**: `~/.cache/alvex/analysis/<soundtrack>-<hash>.json` by default (override with `analysis.library_dir`; honors `XDG_CACHE_HOME`).
-- **Project cache**: also written to `analysis_path` (default `analysis.json`) for convenience.
-- **Reuse**: `plan`/`analyze` reuse the library (or project cache) for a soundtrack when no explicit `bpm`/`cut_points`/`beat_times` are configured and `--refresh`/`analysis.refresh` is not set.
-- **Explicit overrides win**: if `analysis.cut_points`, `analysis.bpm`, or `analysis.beat_times` are set in the project config, they take precedence over cached/detected results (useful for hand-tuned projects). Use `--backend onsets --refresh` to force a fresh detection run.
+- **Reuse order (when no explicit `bpm`/`cut_points`/`beat_times` in config and not forcing a refresh against overrides):** curated soundtrack registry ref (for the configured soundtrack) → hash-keyed library/project cache (per backend rules) → detection.
+- **Explicit overrides win:** `analysis.cut_points`, `analysis.bpm`, or `analysis.beat_times` in config take precedence. Use `--backend onsets --refresh` to force a fresh detection run for seeding.
 
 ## Configure analysis (`alvex.yaml`)
 
 ```yaml
-soundtrack: media/soundtrack.mp3
+soundtrack: /path/or/~/Alvex/soundtracks/acoustic-breeze/bensound-acousticbreeze.mp3
 analysis_path: output/analysis.json   # project cache/read
 
 analysis:
-  backend: onsets     # auto | onsets | librosa | library (default: auto)
-  # refresh: true     # ignore caches and recompute
-  # library_dir: ~/.cache/alvex/analysis
+  backend: auto       # auto | onsets | librosa | library (default: auto)
+  # refresh: true     # ignore caches/refs as configured and recompute detection
+  # library_dir: ~/.cache/alvex/analysis   # hash detection cache (internal)
   # min_distance: 0.35   # (onsets) minimum seconds between detected peaks
 
-  # Explicit timing (overrides detection/cache when set):
+  # Explicit timing (overrides detection/cache/curated ref when set):
   # bpm: 120
   # offset: 0.0
   # duration: 180
   # cut_points: [9.5, 18.0, ...]   # absolute segment-end boundaries (seconds)
-  # beat_times: [0.0, 0.5, ...]    # explicit beat/onset grid
+  # beat_times: [0.0, 0.5, ...]
 ```
 
-Shorthands: top-level `soundtrack_bpm` / `beat_offset` map into `analysis`.
+Shorthands: top-level `soundtrack_bpm` / `beat_offset` map into `analysis`. `alvex-editor init` applies curated registry `cut_points` into project config when available.
 
 ## Resolution behavior
 
@@ -53,19 +62,25 @@ Shorthands: top-level `soundtrack_bpm` / `beat_offset` map into `analysis`.
 
 | backend | needs | notes |
 |---|---|---|
-| `onsets` | `ffmpeg` + `numpy` | Detects onset/transition peaks; persisted to the song library. |
+| `onsets` | `ffmpeg` + `numpy` | Detects onset/transition peaks; persisted to the hash library. |
 | `librosa` | `librosa` | Beat tracking; used if available. |
-| `auto` | — | Reuses library/project cache; else tries librosa, then falls back to `onsets`. |
+| `auto` | — | Prefers curated registry ref (no explicit overrides), then library/project cache; else librosa, then `onsets`. |
 | `library` | cached entry | Reuse a previously analyzed song by hash. |
 
 ## CLI
 
 ```bash
-# write analysis.json (beat/cut-point grid) and update the song library
-alvex analyze --project alvex.yaml [--backend onsets|librosa|auto|library] [--refresh] [-o analysis.json] [--no-cache]
+# workspace/registry (visible, outside repo)
+alvex-editor workspace --json [--save]
+alvex-editor soundtracks list --json
+alvex-editor soundtracks import /path/to/song.mp3 --track-id ID [--title "..."] [--aliases ...] --json
+alvex-editor soundtracks set-cuts ID --cut-points 10.82,19.3,... [--bpm 120] [--offset 0] --json   # explicit confirmation
+
+# write analysis.json (beat/cut-point grid)
+alvex-editor analyze --project alvex.yaml [--backend onsets|librosa|auto|library] [--refresh] [-o analysis.json] [--no-cache]
 
 # build plan + resolve timing (runs analysis/reuse by default)
-alvex plan --project alvex.yaml [-o timeline.json] [--map-clips] [--no-analyze]
+alvex-editor plan --project alvex.yaml [-o timeline.json] [--map-clips] [--no-analyze]
 ```
 
 ## Timeline fields
