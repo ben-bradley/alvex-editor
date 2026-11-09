@@ -29,12 +29,13 @@ Point to your existing Ollama model and your media. Paths resolve relative to th
 
 ```yaml
 name: my-property
-template: templates/exterior-showcase.md
-soundtrack: /path/to/soundtrack.mp3
-clips_dir: /path/to/clips
-output_dir: output
-analysis_path: output/analysis.json
-# sources_manifest: output/sources.yaml   # human-confirmed slot -> clip (+ in_point)
+template: templates/exterior-showcase.md   # example template kept in-repo
+soundtrack: /path/to/soundtrack.mp3         # outside the codebase
+clips_dir: /path/to/clips                   # outside the codebase
+output_dir: ~/alvex-projects/my-property/output
+analysis_path: ~/alvex-projects/my-property/output/analysis.json
+timeline_path: ~/alvex-projects/my-property/output/timeline.json
+# sources_manifest: ~/alvex-projects/my-property/output/sources.yaml   # human-confirmed slot -> clip (+ in_point)
 
 variables:
   address: "123 Main St\nLittle Rock, Arkansas"   # \n = second line (centered)
@@ -60,18 +61,20 @@ render:
 ```bash
 alvex-editor status   -p alvex.yaml --json                 # check config/tools/artifacts
 alvex-editor analyze  -p alvex.yaml --backend onsets --refresh
-alvex-editor plan     -p alvex.yaml --map-clips -o output/timeline.json
+alvex-editor plan     -p alvex.yaml --map-clips
 
-# optional, AI-assisted (writes suggestions for review) — CONFIRM before apply:
+# optional, AI-assisted (writes suggestions for review) - CONFIRM before apply:
 alvex-editor align    -p alvex.yaml --vision
 alvex-editor align    -p alvex.yaml --vision --apply       # explicit confirmation
 alvex-editor select   -p alvex.yaml --vision --apply
 
 # render (explicit)
 alvex-editor render   -p alvex.yaml --dry-run
-alvex-editor render   -p alvex.yaml --preview -o output/preview.mp4
-alvex-editor render   -p alvex.yaml -o output/final.mp4
+alvex-editor render   -p alvex.yaml --preview
+alvex-editor render   -p alvex.yaml
 ```
+
+> **Storage policy:** videos, soundtracks, thumbnails, and edit plans/manifests/analysis are written **outside the Alvex Editor codebase** (the app enforces this). Only the example template (`templates/exterior-showcase.md`) is kept in-repo. For local development/tests only: `ALVEX_ALLOW_IN_REPO_WRITES=1`.
 
 All commands support `--json` for machine-readable output.
 

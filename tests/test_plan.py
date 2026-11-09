@@ -22,7 +22,7 @@ def test_build_plan_writes_valid_timeline(tmp_path):
     timeline.write(out)
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["version"] == 1
-    assert data["template"].endswith("templates/exterior-showcase.md")
+    assert data["template"].replace("\\", "/").endswith("templates/exterior-showcase.md")
     assert data["variables"]["address"] == "123 Main St, Anytown, USA"
     assert len(data["segments"]) == 11
     statuses = {s["slot_id"]: s["source"]["status"] for s in data["segments"]}
@@ -32,4 +32,4 @@ def test_build_plan_writes_valid_timeline(tmp_path):
     intro = data["segments"][0]
     assert any(e["type"] == "fade_in" for e in intro.get("video_effects", []))
     outro = data["segments"][-1]
-    assert outro["audio"]["fade_out"] == 5.0
+    assert outro["audio"]["fade_out"] == 7.0

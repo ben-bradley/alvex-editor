@@ -19,7 +19,7 @@ Thumbs.db
 .idea/
 .vscode/
 
-# Alvex runtime artifacts (regenerable)
+# Alvex runtime artifacts (regenerable; must be saved outside the codebase)
 **/output/*.mp4
 **/output/*.mov
 **/output/_*.mp4
@@ -32,7 +32,30 @@ Thumbs.db
 output-test-*/
 simple_test.mp4
 *.mp4
+*.mov
+*.mkv
+*.avi
+*.mp3
+*.wav
+*.aac
+*.m4a
+*.flac
+*.ogg
+*.opus
+*.webm
+*.m4v
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.gif
+*.bmp
+*.tiff
 !examples/**/*.keep
 
-# Local/sample caches (optional to commit timelines/manifests)
-# examples/*/output/analysis.json
+# Example outputs / edit plans / manifests (regenerable; keep outside the codebase)
+examples/**/output/
+examples/**/sources*.yaml
+examples/**/sources*.yml
+examples/**/timeline*.json
+examples/**/analysis*.json

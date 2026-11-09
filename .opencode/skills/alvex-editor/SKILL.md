@@ -20,7 +20,9 @@ Follow the **canonical guide**: `docs/alvex-editor-agent-guide.md`. Treat that d
 - **CLI fallback:** `alvex-editor <command> --json` (or `PYTHONPATH=src python3 -m alvex_editor.cli ...` from a source checkout).
 
 ## Rules
+- **Permission guard:** do not create/edit/delete/move/rename/commit files in this repository without explicit user permission. State the intended change and get a clear go-ahead first (read-only inspection is allowed).
 - AI (Ollama-only) is optional; suggestions require **human confirmation** before apply.
 - Renders are explicit; prefer `--dry-run`/`--preview`.
+- **Storage policy:** videos, soundtracks, thumbnails, and edit plans/manifests/analysis must be saved **outside the Alvex Editor codebase** (the app enforces writes; keep only the example template `templates/exterior-showcase.md` in-repo).
 - Use the song cut-point library (hash-cached onsets) to avoid re-evaluating the same soundtrack.
 - Set `render.fontfile` for portable title rendering; `variables.address` supports `\n` (two-line centered overlay).

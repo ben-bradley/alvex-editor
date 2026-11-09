@@ -1,4 +1,5 @@
-# Sample project using real media from /home/lappy/Videos/sample-clips
+# Sample project using real media from /home/lappy/Videos/sample-clips (local/dev example)
+# NOTE: videos, soundtracks, thumbnails, and edit plans/manifests must be saved outside the codebase.
 # Clips: 10x 4K drone MP4s + bensound-acousticbreeze.mp3 (fits exterior-showcase; `features` slot optional/missing)
 name: sample-clips-exterior
 template: ../../templates/exterior-showcase.md
@@ -6,10 +7,10 @@ template: ../../templates/exterior-showcase.md
 clips_dir: /home/lappy/Videos/sample-clips
 soundtrack: /home/lappy/Videos/sample-clips/bensound-acousticbreeze.mp3
 
-sources_manifest: output/sources.yaml
-output_dir: output
-timeline_path: output/timeline.json
-analysis_path: output/analysis.json
+sources_manifest: ~/alvex-editor-examples/sample-clips/output/sources.yaml
+output_dir: ~/alvex-editor-examples/sample-clips/output
+timeline_path: ~/alvex-editor-examples/sample-clips/output/timeline.json
+analysis_path: ~/alvex-editor-examples/sample-clips/output/analysis.json
 
 analysis:
   # Manual cut points (end boundaries, seconds) for the 10 rendered segments in order:

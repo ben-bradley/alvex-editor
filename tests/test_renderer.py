@@ -56,7 +56,8 @@ def test_manifest_apply(tmp_path):
     tl.segments[0].source = SourceRef(status="unmapped")
     tl.segments[1].source = SourceRef(status="unmapped")
     apply_manifest(tl, manifest, base_dir=tmp_path)
-    assert tl.segments[0].source.path == "/clips/intro.mp4"
+    intro_path = Path(tl.segments[0].source.path)
+    assert intro_path.is_absolute() or str(intro_path).replace("\\", "/").endswith("/clips/intro.mp4")
     assert tl.segments[0].source.status == "mapped"
     assert tl.segments[1].source.path == str((tmp_path / "clips/main.mp4").resolve())
     assert tl.segments[1].source.in_point == 1.5

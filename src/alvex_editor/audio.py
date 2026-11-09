@@ -11,6 +11,7 @@ import sys
 from typing import Any, Iterable
 
 from .config import ProjectConfig
+from .policy import ensure_not_inside_repo
 from .timeline import Segment, Timeline
 
 
@@ -39,6 +40,7 @@ class AudioAnalysis:
 
     def write(self, path: str | Path) -> Path:
         path = Path(path)
+        ensure_not_inside_repo(path, kind="analysis/edit plan")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), indent=2) + "\n", encoding="utf-8")
         return path

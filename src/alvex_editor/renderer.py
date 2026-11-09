@@ -13,6 +13,7 @@ from typing import Any, Iterable
 
 import yaml
 
+from .policy import ensure_not_inside_repo
 from .probe import find_ffmpeg, find_ffprobe, probe_media
 from .timeline import Segment, Timeline, load_timeline
 
@@ -424,6 +425,7 @@ def run_render(plan: RenderPlan) -> subprocess.CompletedProcess[str]:
     exe = find_ffmpeg()
     if not exe:
         raise RuntimeError("ffmpeg not found. Install FFmpeg and ensure it is on PATH to render.")
+    ensure_not_inside_repo(plan.output, kind="rendered video/output")
     plan.output.parent.mkdir(parents=True, exist_ok=True)
     # Replace command[0] with resolved exe for robustness in odd PATH/snap cases.
     cmd = [exe] + plan.command[1:]

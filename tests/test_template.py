@@ -55,9 +55,9 @@ def test_outro_effects():
     t = load_template(TEMPLATE)
     outro = t.edit_slots[-1]
     assert outro.slot_id == "departure"
-    assert any(e.get("type") == "fade_out" and e.get("anchor") == "end" and e.get("duration") == 5.0 for e in outro.video_effects)
-    assert outro.audio.fade_out == 5.0
+    assert any(e.get("type") == "fade_out" and e.get("anchor") == "end" and e.get("duration") == 7.0 for e in outro.video_effects)
+    assert outro.audio.fade_out == 7.0
     titles = [o for o in outro.overlays if o.type == "title" and o.text == "${address}"]
     assert titles, "expected outro address title overlay"
-    assert titles[0].start == "end-5"
+    assert titles[0].start == "end-7"
     assert titles[0].end == "end"

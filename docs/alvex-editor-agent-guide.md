@@ -9,14 +9,15 @@ Template-driven, beat-aligned video production (primary use case: real-estate ex
 **Pipeline (deterministic given resolved inputs):** template + clips + soundtrack → analyze soundtrack for pacing/transition points → resolve a timeline → (optionally) map clips & select in-points → render with intro/outro, titles/overlays, audio → review/export.
 
 **Key artifacts (file-backed, inspectable):**
-- `alvex.yaml` — project config (template, soundtrack, `clips_dir`, `output_dir`, `analysis`, `ollama`, `render`, `variables`). Paths resolve relative to the config file.
-- `output/analysis.json` (project cache) and the **song cut-point library** `~/.cache/alvex/analysis/<soundtrack>-<hash>.json` (cross-platform cache dir) — beat/onset grid (`method`, `duration`, `beat_times`, `cut_points`).
-- `output/timeline.json` — resolved plan (`analysis` + per-segment `resolved_duration`, `timeline_in/out`, `source` mapping/status, transitions/effects/overlays).
-- `sources.suggested.yaml` / `sources.selected.suggested.yaml` → **`sources.yaml` (applied, human-confirmed)** — `slot_id -> {path, in_point, out_point}` plus suggestion metadata.
-- `output/preview.mp4` / `output/final.mp4`.
+- `alvex.yaml` — project config (template, soundtrack, `clips_dir`, `output_dir`, `analysis`, `ollama`, `render`, `variables`). Paths resolve relative to the config file. **All videos, soundtracks, thumbnails, and edit plans/manifests must be saved outside the Alvex Editor codebase** (use absolute paths or `~/...`; the app rejects writes inside the repo). The in-repo `templates/exterior-showcase.md` is the allowed example template.
+- `analysis.json` (project cache, outside the codebase) and the **song cut-point library** `~/.cache/alvex/analysis/<soundtrack>-<hash>.json` (cross-platform cache dir) — beat/onset grid (`method`, `duration`, `beat_times`, `cut_points`).
+- `timeline.json` (outside the codebase) — resolved plan (`analysis` + per-segment `resolved_duration`, `timeline_in/out`, `source` mapping/status, transitions/effects/overlays).
+- `sources.suggested.yaml` / `sources.selected.suggested.yaml` → **`sources.yaml` (applied, human-confirmed, outside the codebase)** — `slot_id -> {path, in_point, out_point}` plus suggestion metadata.
+- `preview.mp4` / `final.mp4` (outside the codebase).
 
 ## Safety & human confirmation (required)
 
+- **No repo changes without explicit permission.** Agents must not create, edit, delete, move, rename, or commit files in this repository without explicit user permission. State the intended change and get a clear go-ahead first (an explicit instruction for a specific change grants permission for that change only). Read-only inspection is allowed.
 - **AI suggestions are never auto-applied.** `align` (clip→slot mapping) and `select` (in-point) write *suggested* manifests for review and only write the target manifest when explicitly confirmed (`--apply`).
 - **Rendering is explicit.** Prefer `--dry-run` or `--preview` first; full renders can be resource-intensive (4K sources).
 - **Ollama-only for AI.** Configure `ollama` in `alvex.yaml` (e.g., `model`/`vision_model: qwen3-vl:latest`). See `docs/ollama.md`. Vision labeling/extraction uses `ffmpeg`.
@@ -38,13 +39,13 @@ Template-driven, beat-aligned video production (primary use case: real-estate ex
 
 4. **Plan the timeline.**
    ```bash
-   alvex-editor plan -p alvex.yaml --map-clips -o output/timeline.json
+   alvex-editor plan -p alvex.yaml --map-clips   # writes to config timeline_path (outside the codebase)
    ```
    Review segment count, mapped/unmapped (optional slots like `features` may be unmapped and consume 0 time), and timing (`analysis.method`, cut points/beat alignment).
 
 5. **Suggest clip mapping (optional, AI, confirm).**
    ```bash
-   alvex-editor align -p alvex.yaml [--vision] -o output/sources.suggested.yaml
+   alvex-editor align -p alvex.yaml [--vision]   # writes a suggested manifest outside the codebase (review required)
    # REVIEW suggested mappings/confidences, then explicitly confirm:
    alvex-editor align -p alvex.yaml [--vision] --apply
    ```
@@ -52,7 +53,7 @@ Template-driven, beat-aligned video production (primary use case: real-estate ex
 
 6. **Suggest in-points (optional, AI/heuristics, confirm).**
    ```bash
-   alvex-editor select -p alvex.yaml [--vision] [-o output/sources.selected.suggested.yaml]
+   alvex-editor select -p alvex.yaml [--vision]   # writes a suggested manifest outside the codebase (review required)
    # REVIEW, then confirm:
    alvex-editor select -p alvex.yaml [--vision] --apply
    ```
@@ -61,8 +62,8 @@ Template-driven, beat-aligned video production (primary use case: real-estate ex
 7. **Render (explicit).**
    ```bash
    alvex-editor render -p alvex.yaml --dry-run                         # verify filter/command
-   alvex-editor render -p alvex.yaml --preview -o output/preview.mp4   # fast check
-   alvex-editor render -p alvex.yaml -o output/final.mp4              # final
+   alvex-editor render -p alvex.yaml --preview                         # fast check (writes outside the codebase)
+   alvex-editor render -p alvex.yaml                                   # final (writes outside the codebase)
    ```
    Useful flags: `--no-probe`, `--strict-duration`, `--allow-unmapped` (testing), `--manifest`. Set `render.fontfile` for portable title rendering (esp. Windows/macOS).
 
