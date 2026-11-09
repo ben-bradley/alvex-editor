@@ -140,3 +140,13 @@ def test_render_options_text_align_and_position():
     # default remains centered
     plan_default = build_render_plan(_timeline_with_timing(), "/out/final.mp4")
     assert ":text_align=C" in plan_default.filter_complex
+
+
+def test_audio_fade_out_end_before():
+    tl = _timeline_with_timing()
+    tl.segments[-1].audio = AudioEffect(fade_out=7.0, fade_out_end_before=2.629)
+    tl.segments[-1].resolved_duration = 11.2849
+    plan = build_render_plan(tl, "/out/final.mp4")
+    # render positions: intro 5 + main 9 + outro 11.2849 = 25.2849
+    # end_at = 25.2849 - 2.629 = 22.6559, st = 22.6559 - 7 = 15.6559
+    assert "afade=t=out:st=15.6559:d=7.0000" in plan.filter_complex

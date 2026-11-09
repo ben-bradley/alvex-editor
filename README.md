@@ -84,10 +84,15 @@ analysis:
   # cut_points: [10.82, 19.3, ...]   # curated/explicit (win over detection)
 timing:
   # optional per-project intro/outro timing overrides (template values are defaults when unset)
-  # intro_fade_seconds: 5.0
+  # intro_fade_seconds: 5.0                 # fallback for intro video+audio fade
+  # intro_video_fade_seconds: 5.0
+  # intro_audio_fade_seconds: 5.0
   # intro_title_after_seconds: 1.0
   # intro_title_duration_seconds: 5.0
-  # outro_fade_seconds: 7.0
+  # outro_fade_seconds: 7.0                 # fallback for outro video+audio fade
+  # outro_video_fade_seconds: 7.0
+  # outro_audio_fade_seconds: 7.0
+  # outro_audio_fade_out_before_end_seconds: 0.0  # audio fade completes N sec before video end
   # outro_title_before_end_seconds: 7.0
 render:
   fontfile: /path/to/font.ttf

@@ -81,18 +81,25 @@ def _apply_timing_overrides(segments: list[Segment], timing: dict[str, Any] | No
         return
 
     intro_fade = _timing_num(timing, "intro_fade_seconds")
+    intro_video_fade = _timing_num(timing, "intro_video_fade_seconds")
+    intro_audio_fade = _timing_num(timing, "intro_audio_fade_seconds")
     intro_title_after = _timing_num(timing, "intro_title_after_seconds")
     intro_title_dur = _timing_num(timing, "intro_title_duration_seconds")
     outro_fade = _timing_num(timing, "outro_fade_seconds")
+    outro_video_fade = _timing_num(timing, "outro_video_fade_seconds")
+    outro_audio_fade = _timing_num(timing, "outro_audio_fade_seconds")
+    outro_audio_fade_before_end = _timing_num(timing, "outro_audio_fade_out_before_end_seconds")
     outro_title_before = _timing_num(timing, "outro_title_before_end_seconds")
 
     intro = segments[0]
-    if intro_fade is not None:
+    ivf = intro_video_fade if intro_video_fade is not None else intro_fade
+    iaf = intro_audio_fade if intro_audio_fade is not None else intro_fade
+    if ivf is not None:
         for eff in intro.video_effects or []:
             if isinstance(eff, dict) and eff.get("type") == "fade_in":
-                eff["duration"] = intro_fade
-        if intro.audio.fade_in is not None or intro_fade is not None:
-            intro.audio.fade_in = intro_fade
+                eff["duration"] = ivf
+    if iaf is not None:
+        intro.audio.fade_in = iaf
     if intro_title_after is not None or intro_title_dur is not None:
         for ov in intro.overlays or []:
             if ov.type != "title" or ov.text != "${address}":
@@ -110,12 +117,16 @@ def _apply_timing_overrides(segments: list[Segment], timing: dict[str, Any] | No
                 break
 
     outro = segments[-1]
-    if outro_fade is not None:
+    ovf = outro_video_fade if outro_video_fade is not None else outro_fade
+    oaf = outro_audio_fade if outro_audio_fade is not None else outro_fade
+    if ovf is not None:
         for eff in outro.video_effects or []:
             if isinstance(eff, dict) and eff.get("type") == "fade_out" and (eff.get("anchor") == "end" or eff.get("start") is None):
-                eff["duration"] = outro_fade
-        if outro.audio.fade_out is not None or outro_fade is not None:
-            outro.audio.fade_out = outro_fade
+                eff["duration"] = ovf
+    if oaf is not None:
+        outro.audio.fade_out = oaf
+    if outro_audio_fade_before_end is not None:
+        outro.audio.fade_out_end_before = outro_audio_fade_before_end
     if outro_title_before is not None:
         for ov in outro.overlays or []:
             if ov.type != "title" or ov.text != "${address}":

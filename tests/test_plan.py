@@ -70,3 +70,29 @@ def test_build_plan_timing_overrides(tmp_path):
     assert fade_outs and fade_outs[0]["duration"] == 4.0
     end_titles = [o for o in (outro.overlays or []) if o.text == "${address}" and str(o.start).startswith("end-")]
     assert end_titles and end_titles[0].start == "end-5" and end_titles[0].end == "end"
+
+
+def test_build_plan_timing_decoupled_audio_fade(tmp_path):
+    template = (REPO / "templates" / "exterior-showcase.md").resolve()
+    cfg_path = tmp_path / "alvex.yaml"
+    cfg_path.write_text(
+        "\n".join([
+            "name: timing-test",
+            f"template: {template}",
+            "soundtrack: /media/music.mp3",
+            "analysis:",
+            "  bpm: 120",
+            "timing:",
+            "  outro_video_fade_seconds: 7.0",
+            "  outro_audio_fade_seconds: 7.0",
+            "  outro_audio_fade_out_before_end_seconds: 2.629",
+        ]),
+        encoding="utf-8",
+    )
+    cfg = load_config(cfg_path)
+    timeline = build_plan(cfg)
+    outro = timeline.segments[-1]
+    fade_outs = [e for e in (outro.video_effects or []) if isinstance(e, dict) and e.get("type") == "fade_out"]
+    assert fade_outs and fade_outs[0]["duration"] == 7.0
+    assert outro.audio.fade_out == 7.0
+    assert outro.audio.fade_out_end_before == 2.629

@@ -283,7 +283,9 @@ def _collect_audio_fades(segs: list[Segment], render_positions: list[tuple[float
             filters.append(f"afade=t=in:st={float(tin):.4f}:d={float(seg.audio.fade_in):.4f}")
         if seg.audio.fade_out and seg.audio.fade_out > 0:
             d = float(seg.audio.fade_out)
-            st = max(0.0, float(tout) - d)
+            end_before = float(seg.audio.fade_out_end_before or 0.0)
+            end_at = max(float(tin), float(tout) - max(0.0, end_before))
+            st = max(float(tin), end_at - d)
             filters.append(f"afade=t=out:st={st:.4f}:d={d:.4f}")
     return filters
 

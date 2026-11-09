@@ -64,6 +64,7 @@ class Overlay:
 class AudioEffect:
     fade_in: float | None = None
     fade_out: float | None = None
+    fade_out_end_before: float | None = None  # seconds before segment end when fade-out completes
     gain: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -73,7 +74,12 @@ class AudioEffect:
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "AudioEffect":
         data = data or {}
-        return cls(fade_in=data.get("fade_in"), fade_out=data.get("fade_out"), gain=data.get("gain"))
+        return cls(
+            fade_in=data.get("fade_in"),
+            fade_out=data.get("fade_out"),
+            fade_out_end_before=data.get("fade_out_end_before"),
+            gain=data.get("gain"),
+        )
 
 
 @dataclass
