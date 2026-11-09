@@ -2,49 +2,74 @@
 
 Template-driven, beat-aligned video production (primary use case: real-estate exterior showcase). Produces deterministic timelines and renders with FFmpeg. Can be driven from the CLI, as a Python API, or by AI agents (MCP / `--json`) — **AI suggestions require human confirmation**.
 
-## Getting started
+## Quick start (chat UX in fewest steps)
 
-### 1) Prerequisites
+1. **Prerequisites**: Python 3.11+, [FFmpeg](https://ffmpeg.org/download.html) on PATH (or set `FFMPEG`/`FFPROBE`). [Docker](https://www.docker.com/) for OpenWebUI (recommended). Ollama optional.
+2. **Install Alvex with MCP support**:
+```bash
+pip install -e ".[analysis,agent]"
+```
+3. **Set up workspace & check tools**:
+```bash
+alvex-editor workspace --save --json
+alvex-editor doctor --json
+```
+4. **Start OpenWebUI + connect MCP (chat UX)**:
+```bash
+# Run OpenWebUI
+docker run -d --name openwebui -p 3000:8080 -v openwebui-data:/app/backend/data --add-host=host.docker.internal:host-gateway ghcr.io/open-webui/open-webui:main
+```
+Open http://localhost:3000, create admin account. **Configure a model** (OpenWebUI requires one): install [Ollama](https://ollama.com/), pull a model (`ollama pull llama-3.1`), and add it in Admin → Settings → Connections (point to `http://host.docker.internal:11434`). Or use an OpenAI-compatible provider.
+
+Then add the MCP server:
+- Get config: `alvex-editor mcp` (or see [`docs/openwebui-docker.md`](docs/openwebui-docker.md))
+- In OpenWebUI: Admin → Settings → Tools → MCP Servers → Add Server (stdio)
+- Command: `python` (or your venv python), Args: `["-m", "alvex_editor.mcp_server"]`
+- *Tip for Docker*: running MCP on the host is easiest for file access. If you run both in Docker, mount `~/Alvex` and your clips directories as volumes.
+
+5. **Chat with Alvex**: In OpenWebUI, start a new chat and use the Alvex MCP tools. Tell it: "Start a new real estate video project..." and it will guide you through intake (template, soundtrack, clips, address), plan, preview, and final render. All files go to `~/Alvex/` outside the repo.
+
+**Notes:** Core workflow works without Ollama. AI features need Ollama if used. See [`docs/alvex-editor-agent-guide.md`](docs/alvex-editor-agent-guide.md) for the full agent workflow.
+
+## Getting started (detailed)
+
+### Prerequisites
 - **Python >= 3.11**
 - **FFmpeg** (`ffmpeg` + `ffprobe`) on `PATH` (or set `FFMPEG`/`FFPROBE`)
-- **Ollama (optional, for AI mapping/in-point selection):** point Alvex at the model you already have. This project is configured/tested with `qwen3-vl:latest` (vision + text/tools). *You do not need Alvex to manage your model* — just set the host/model in `alvex.json` (see below and `docs/ollama.md`).
+- **Ollama (optional, for AI mapping/in-point selection):** point to your existing model (e.g., `qwen3-vl:latest`). Not required for core workflow.
 
-### 2) Install (from a source checkout)
+### Install
 ```bash
 python -m venv .venv
-# Linux/macOS
-source .venv/bin/activate
-# Windows (PowerShell)
-# .venv\Scripts\Activate.ps1
+# Linux/macOS: source .venv/bin/activate
+# Windows (PowerShell): .venv\Scripts\Activate.ps1
 
-pip install -e ".[dev]"
-# onset soundtrack analysis (song cut-point library):
-pip install -e ".[analysis]"          # or: pip install numpy
-# MCP server (to let any MCP-capable AI agent call Alvex as tools):
-pip install -e ".[agent]"
+# Minimal + analysis + MCP
+pip install -e ".[analysis,agent]"
+
+# Or from PyPI when published: pip install alvex-editor[analysis,agent]
 ```
 
-### 3) Workspace & registries (visible, outside the repo)
-Keep **all user work in an obvious, user-visible workspace** (not hidden). Default root: `~/Alvex` (override `ALVEX_WORKSPACE` / `--workspace`), grouped as:
-
+### Workspace & registries (visible, outside the repo)
+Default root: `~/Alvex` (override `ALVEX_WORKSPACE` / `--workspace`):
 ```text
 ~/Alvex/
-  templates/      # template registry (add *.md templates alongside real-estate)
-  soundtracks/    # soundtrack registry (MP3s copied/imported) + curated cut-points.json per song (map once, reuse)
+  templates/      # user templates (*.md)
+  soundtracks/    # imported MP3s + curated cut-points.json (map once, reuse)
   projects/       # one folder per video job (<slug>/alvex.json + output/)
 ```
 
 ```bash
-alvex-editor workspace --json [--save]                 # confirm locations (session start)
-alvex-editor doctor --json [ -p <project>/alvex.json ]  # ffmpeg/ffprobe resolution + hints
+alvex-editor workspace --json [--save]                 # confirm locations
+alvex-editor doctor --json [ -p <project>/alvex.json ]  # ffmpeg/ffprobe hints
 alvex-editor templates --json                           # bundled + workspace templates
 alvex-editor soundtracks list --json
 alvex-editor soundtracks import /path/to/song.mp3 --track-id acoustic-breeze --json
 alvex-editor soundtracks set-cuts acoustic-breeze --cut-points 10.82,19.3,... --json   # explicit confirmation
 ```
 
-### 4) Start a project (`init`) and run the workflow (CLI)
-`alvex-editor` is the CLI (`alvex` alias kept). All work is outside the repo. From a source checkout you can also use `PYTHONPATH=src python3 -m alvex_editor.cli ...`.
+### Start a project (`init`) and run the workflow (CLI)
+`alvex-editor` is the CLI (`alvex` alias). All work is outside the repo. From source checkout: `PYTHONPATH=src python3 -m alvex_editor.cli ...`
 
 ```bash
 # scaffold a project (resolves template alias + registered soundtrack/curated cut points)

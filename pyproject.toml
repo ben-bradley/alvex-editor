@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alvex-editor"
-version = "0.1.0"
+version = "0.1.1"
 description = "Alvex Editor - template-driven video editing and production"
 readme = "README.md"
 requires-python = ">=3.11"
